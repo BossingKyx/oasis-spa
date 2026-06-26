@@ -16,6 +16,17 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load a local ".env" file (KEY=VALUE per line) if present, so the office
+# install can point at a cloud database (e.g. Supabase) without setting
+# Windows environment variables. Real env vars always win over the file.
+_env_file = BASE_DIR / '.env'
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding='utf-8-sig').splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith('#') and '=' in _line:
+            _k, _v = _line.split('=', 1)
+            os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+
 # Settings read from environment variables when deployed (e.g. Vercel),
 # falling back to local-friendly defaults so the office install just works.
 
@@ -100,6 +111,11 @@ if _db_url:
     DATABASES = {
         "default": dj_database_url.parse(_db_url, conn_max_age=600, ssl_require=True)
     }
+    # Make it safe behind a connection pooler (Supabase Supavisor / PgBouncer
+    # transaction mode): disable psycopg3 prepared statements + server cursors.
+    DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"]["prepare_threshold"] = None
+    DISABLE_SERVER_SIDE_CURSORS = True
 else:
     DATABASES = {
         'default': {

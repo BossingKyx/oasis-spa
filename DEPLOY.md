@@ -12,12 +12,18 @@ cloud database from your local office install).
    - Framework preset: **Other**. Leave build settings as-is (`vercel.json` handles it).
    - Click **Deploy** once (the first build may fail until the database exists — that's expected; we fix it in step 2/3).
 
-2. **Add a Postgres database**
-   - In the project → **Storage → Create Database → Postgres** (Neon).
-   - **Connect** it to the `oasis-spa` project. This auto-adds `DATABASE_URL` /
-     `POSTGRES_URL` environment variables.
+2. **Create a Supabase database**
+   - <https://supabase.com> → **New project** (free tier). Pick a region close
+     to PH (e.g. Singapore) and save the database password.
+   - Project → **Settings → Database → Connection string → "Session pooler"**.
+     Copy the URI. It looks like:
+     `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`
+   - ⚠ Use the **pooler** host (`...pooler.supabase.com`), not the direct
+     `db.<ref>.supabase.co` host — the direct one is IPv6-only and Vercel can't
+     reach it.
 
 3. **Set environment variables** (project → **Settings → Environment Variables**)
+   - `DATABASE_URL` = *(the Supabase Session pooler URI from step 2)*
    - `DEBUG` = `False`
    - `SECRET_KEY` = *(any long random string)*
    - (Host/CSRF are handled automatically via Vercel's `VERCEL_URL`.)
