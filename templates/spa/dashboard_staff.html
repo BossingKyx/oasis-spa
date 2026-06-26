@@ -10,8 +10,14 @@
 </div>
 
 <div class="grid cols-2">
-  <div class="card stat"><span class="label">My active sessions today</span><span class="value">{{ active_count }}</span></div>
-  <div class="card stat"><span class="label">Total assigned today</span><span class="value">{{ my_bookings|length }}</span></div>
+  <div class="card stat green">
+    <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+    <div><div class="label">My active sessions today</div><div class="value">{{ active_count }}</div></div>
+  </div>
+  <div class="card stat">
+    <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span>
+    <div><div class="label">Total assigned today</div><div class="value">{{ my_bookings|length }}</div></div>
+  </div>
 </div>
 
 <h2>My bookings today</h2>

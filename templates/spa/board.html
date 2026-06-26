@@ -38,11 +38,11 @@
           {% if b.finished_at %} · ■ {{ b.finished_at|date:"g:i A" }} ({{ b.duration_label }}){% endif %}
         </div>
         <div class="qa">
-          <a class="btn sm ghost" href="{% url 'booking_detail' b.id %}" style="text-decoration:none">Open</a>
+          <a class="btn sm ghost" href="{% url 'booking_detail' b.id %}">Open</a>
           {% if col.key == 'CONFIRMED' or col.key == 'ARRIVED' %}
-            <button class="go" data-move="{{ b.id }}" data-to="IN_SERVICE">▶ Start</button>
+            <button class="btn sm accent" data-move="{{ b.id }}" data-to="IN_SERVICE">▶ Start</button>
           {% elif col.key == 'IN_SERVICE' %}
-            <button class="go" data-move="{{ b.id }}" data-to="COMPLETED">■ Finish</button>
+            <button class="btn sm accent" data-move="{{ b.id }}" data-to="COMPLETED">■ Finish</button>
           {% endif %}
         </div>
       </div>

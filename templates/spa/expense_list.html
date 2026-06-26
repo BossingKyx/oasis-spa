@@ -20,7 +20,10 @@
   <button class="btn ghost" type="submit">Apply</button>
 </form>
 
-<div class="card stat bad" style="max-width:280px; margin-bottom:14px"><span class="label">Total in range</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ total|floatformat:2 }}</span></div>
+<div class="card stat red" style="max-width:300px; margin-bottom:16px">
+  <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 9h6M9 13h6"/></svg></span>
+  <div><div class="label">Total in range</div><div class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ total|floatformat:2 }}</div></div>
+</div>
 
 <div class="card">
   <div class="table-wrap">

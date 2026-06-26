@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f766e">
   <title>{% block title %}{{ OASIS.COMPANY_NAME }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
   <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
@@ -16,22 +19,41 @@
   <aside class="sidebar">
     <div class="brand">
       <span class="logo">O</span>
-      <span>Oasis Spa</span>
+      <span>Oasis Spa<small>Management System</small></span>
     </div>
     <nav>
-      {% url 'dashboard' as u %}<a href="{{ u }}" class="{% if request.path == u %}active{% endif %}"><span class="ic">📊</span> Dashboard</a>
-      {% url 'board' as u %}<a href="{{ u }}" class="{% if request.path == u %}active{% endif %}"><span class="ic">🗂️</span> Service Board</a>
-      {% url 'booking_list' as u %}<a href="{{ u }}" class="{% if '/bookings' in request.path %}active{% endif %}"><span class="ic">📅</span> Bookings</a>
-      {% url 'customer_list' as u %}<a href="{{ u }}" class="{% if '/customers' in request.path %}active{% endif %}"><span class="ic">👤</span> Clients</a>
+      <div class="sec">Operations</div>
+      {% url 'dashboard' as u %}<a href="{{ u }}" class="{% if request.path == u %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard</a>
+      {% url 'board' as u %}<a href="{{ u }}" class="{% if request.path == u %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/></svg>
+        Service Board</a>
+      {% url 'booking_list' as u %}<a href="{{ u }}" class="{% if '/bookings' in request.path %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+        Bookings</a>
+      {% url 'customer_list' as u %}<a href="{{ u }}" class="{% if '/customers' in request.path %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/></svg>
+        Clients</a>
       {% if is_owner %}
-      {% url 'expense_list' as u %}<a href="{{ u }}" class="{% if '/expenses' in request.path %}active{% endif %}"><span class="ic">🧾</span> Expenses</a>
-      {% url 'daily_report' as u %}<a href="{{ u }}" class="{% if '/reports' in request.path %}active{% endif %}"><span class="ic">📈</span> Daily Report</a>
+      <div class="sec">Finance</div>
+      {% url 'expense_list' as u %}<a href="{{ u }}" class="{% if '/expenses' in request.path %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+        Expenses</a>
+      {% url 'daily_report' as u %}<a href="{{ u }}" class="{% if '/reports' in request.path %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20V4M4 20h16"/><path d="M8 16l3-4 3 2 4-6"/></svg>
+        Daily Report</a>
       {% endif %}
     </nav>
     <div class="foot">
       {% if user.is_authenticated %}
-        <div><strong>{{ current_profile.display_name|default:user.username }}</strong></div>
-        <div class="subtle" style="color:rgba(255,255,255,.7)">{% if is_owner %}Owner / Admin{% else %}Therapist{% endif %}</div>
+        <div class="who">
+          <span class="av">{{ current_profile.display_name|default:user.username|slice:":1"|upper }}</span>
+          <div>
+            <div class="nm">{{ current_profile.display_name|default:user.username }}</div>
+            <div class="rl">{% if is_owner %}Owner / Admin{% else %}Therapist{% endif %}</div>
+          </div>
+        </div>
         <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
       {% endif %}
     </div>

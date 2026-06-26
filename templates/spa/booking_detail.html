@@ -32,8 +32,8 @@
   <div class="card">
     <h2 style="margin-top:0">Payment</h2>
     <div class="grid cols-2">
-      <div class="stat"><span class="label">Service total</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ booking.service_total|floatformat:2 }}</span></div>
-      <div class="stat {% if booking.balance > 0 %}bad{% else %}good{% endif %}"><span class="label">Balance</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ booking.balance|floatformat:2 }}</span></div>
+      <div class="stat"><div><div class="label">Service total</div><div class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ booking.service_total|floatformat:2 }}</div></div></div>
+      <div class="stat {% if booking.balance > 0 %}red{% else %}green{% endif %}"><div><div class="label">Balance</div><div class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ booking.balance|floatformat:2 }}</div></div></div>
     </div>
     <table class="tbl" style="margin-top:12px">
       <tr><th>Method</th><th class="num">Amount</th><th>When</th><th>Proof</th></tr>
