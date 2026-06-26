@@ -54,11 +54,12 @@ a:hover { color: var(--accent); }
   display: flex; align-items: center; gap: 11px;
 }
 .sidebar .brand .logo {
-  width: 38px; height: 38px; border-radius: 11px;
+  width: 40px; height: 40px; border-radius: 50%; position: relative; overflow: hidden;
   background: linear-gradient(145deg, #2e6b3e, #3f9a57);
   color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 1.1rem;
-  box-shadow: 0 4px 10px rgba(46,107,62,.35);
+  box-shadow: 0 4px 10px rgba(46,107,62,.35); flex: 0 0 auto;
 }
+.sidebar .brand .logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; }
 .sidebar .brand small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; letter-spacing: .3px; }
 .sidebar nav { padding: 8px 12px; flex: 1; overflow-y: auto; }
 .sidebar nav .sec { font-size: .68rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 14px 12px 6px; }
@@ -216,7 +217,8 @@ ul.checks input { width: auto; accent-color: var(--accent); }
   radial-gradient(1200px 520px at 100% -10%, #f7d9bf 0, transparent 60%),
   radial-gradient(900px 520px at -10% 110%, #e9f2eb 0, transparent 55%), var(--bg); padding: 20px; }
 .login-card { background: var(--card); border-radius: 20px; padding: 36px 32px; width: 100%; max-width: 390px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); }
-.login-card .logo-big { width: 60px; height: 60px; border-radius: 16px; background: linear-gradient(145deg, #2e6b3e, #3f9a57); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 1.5rem; margin: 0 auto 16px; box-shadow: 0 8px 18px rgba(46,107,62,.35); }
+.login-card .logo-big { width: 104px; height: 104px; border-radius: 50%; position: relative; overflow: hidden; background: linear-gradient(145deg, #2e6b3e, #3f9a57); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 2.2rem; margin: 0 auto 16px; box-shadow: 0 8px 18px rgba(46,107,62,.30); }
+.login-card .logo-big img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; }
 .login-card h1 { text-align: center; font-size: 1.3rem; }
 .login-card .tag { text-align: center; color: var(--muted); margin-bottom: 22px; font-size: .9rem; }
 .demo-note { margin-top: 20px; font-size: .8rem; color: var(--muted); background: var(--bg); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); }
