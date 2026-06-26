@@ -10,23 +10,37 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# Settings read from environment variables when deployed (e.g. Vercel),
+# falling back to local-friendly defaults so the office install just works.
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-wh@jyd#uw+sf_u#149o_gm_re-x(m19z@!r_#5o*d$ttnz2tg='
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY",
+    'django-insecure-wh@jyd#uw+sf_u#149o_gm_re-x(m19z@!r_#5o*d$ttnz2tg=',
+)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG is on locally; set DEBUG=False in the hosting environment.
+DEBUG = os.environ.get("DEBUG", "True").lower() in ("1", "true", "yes")
 
-# Open to the office LAN so staff can reach it from their phones.
-ALLOWED_HOSTS = ['*']
+# Comma-separated hostnames in the env; defaults to "any" for the office LAN.
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+
+# Trust the HTTPS origin(s) of the host (needed for forms/login on Vercel).
+CSRF_TRUSTED_ORIGINS = [
+    o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o
+]
+# Convenience: Vercel sets VERCEL_URL to the deployment's hostname.
+_vercel_url = os.environ.get("VERCEL_URL")
+if _vercel_url:
+    ALLOWED_HOSTS.append(_vercel_url)
+    CSRF_TRUSTED_ORIGINS.append(f"https://{_vercel_url}")
+    CSRF_TRUSTED_ORIGINS.append("https://*.vercel.app")
 
 
 # Application definition
@@ -43,6 +57,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise serves static files (CSS, logo) in production without a
+    # separate web server. Harmless locally.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -75,12 +92,21 @@ WSGI_APPLICATION = 'oasis.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Local: a single SQLite file. Deployed: a managed Postgres via a connection
+# URL (DATABASE_URL, or POSTGRES_URL which Vercel Postgres provides).
+_db_url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+if _db_url:
+    import dj_database_url
+    DATABASES = {
+        "default": dj_database_url.parse(_db_url, conn_max_age=600, ssl_require=True)
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -117,13 +143,24 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# collectstatic gathers files under .../staticfiles_build/static so that, on
+# Vercel, they're served from the /static/ URL prefix (WhiteNoise at runtime).
+STATIC_ROOT = BASE_DIR / 'staticfiles_build' / 'static'
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+    },
+}
 
-# Uploaded files (payment screenshots, expense receipts)
+# Uploaded files (payment screenshots, expense receipts).
+# NOTE: on serverless hosts (Vercel) the disk is temporary, so uploads do not
+# persist there — fine for the public booking page (no uploads), not for real
+# payment/receipt records, which stay on the local office install.
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", str(BASE_DIR / 'media'))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

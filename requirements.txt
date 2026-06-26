@@ -1,0 +1,9 @@
+Django>=5.2,<5.3
+reportlab
+pypdf
+Pillow
+openpyxl
+qrcode
+whitenoise
+dj-database-url
+psycopg[binary]
