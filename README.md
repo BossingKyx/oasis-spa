@@ -36,8 +36,12 @@ already in place for future Facebook automation.
 
 ## Running it
 
-Double-click **`start-oasis.bat`**, then open <http://localhost:8000>.
-Other phones on the same Wi‑Fi: `http://<this-pc-ip>:8000`.
+Double-click **`start-oasis.bat`**, then open <http://localhost:8010>.
+Other phones on the same Wi‑Fi: `http://<this-pc-ip>:8010`.
+Customer self-booking page (shareable): `http://<this-pc-ip>:8010/book/`.
+
+> Runs on port **8010** so it can run at the same time as the 24K Advertising
+> system (which uses 8000).
 
 ### Demo accounts
 | Role | Username | Password |
