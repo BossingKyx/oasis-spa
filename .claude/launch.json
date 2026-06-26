@@ -4,9 +4,9 @@
     {
       "name": "oasis",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["run_preview.py"],
+      "runtimeArgs": ["manage.py", "runserver", "0.0.0.0:8010"],
       "port": 8010,
-      "autoPort": true
+      "autoPort": false
     }
   ]
 }

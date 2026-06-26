@@ -43,6 +43,10 @@
       {% url 'daily_report' as u %}<a href="{{ u }}" class="{% if '/reports' in request.path %}active{% endif %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20V4M4 20h16"/><path d="M8 16l3-4 3 2 4-6"/></svg>
         Daily Report</a>
+      <div class="sec">Online</div>
+      <a href="{% url 'public_book' %}" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>
+        Booking Page ↗</a>
       {% endif %}
     </nav>
     <div class="foot">

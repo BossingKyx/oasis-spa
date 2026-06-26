@@ -1,0 +1,26 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#df742c">
+  <title>{% block title %}Book an appointment — Oasis on the Go Spa{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+</head>
+<body class="pub">
+  <div class="pub-wrap">
+    <header class="pub-head">
+      <img src="{% static 'img/oasis-logo.png' %}" alt="Oasis on the Go Spa" class="pub-logo" onerror="this.style.display='none'">
+      <h1>Oasis on the Go Spa</h1>
+      <p class="subtle">Massage &amp; Spa · General Trias &amp; Trece Martires · Walk-in &amp; Home Service</p>
+    </header>
+    {% block content %}{% endblock %}
+    <footer class="pub-foot subtle">Open daily 2:00 PM – 12:00 MN · We’ll confirm your booking by text or Facebook.</footer>
+  </div>
+</body>
+</html>

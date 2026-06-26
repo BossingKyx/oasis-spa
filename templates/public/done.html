@@ -1,0 +1,21 @@
+{% extends 'public/base.html' %}
+{% block title %}Booking received — Oasis on the Go Spa{% endblock %}
+{% block content %}
+<div class="card" style="text-align:center">
+  <div style="width:64px;height:64px;border-radius:50%;background:var(--green-soft);color:var(--green);display:grid;place-items:center;margin:4px auto 14px;font-size:2rem">✓</div>
+  <h2 style="margin-top:0">Booking request received!</h2>
+  <p class="subtle">Reference #{{ booking.id }} — please keep this number.</p>
+
+  <table class="tbl" style="margin:18px 0; text-align:left">
+    <tr><th>Name</th><td>{{ booking.customer.full_name }}</td></tr>
+    <tr><th>Branch</th><td>{{ booking.branch.name }}</td></tr>
+    <tr><th>Service(s)</th><td>{{ booking.services_label }}</td></tr>
+    <tr><th>Date &amp; time</th><td>{{ booking.scheduled_for|date:"l, M d, Y · g:i A" }}</td></tr>
+    <tr><th>Location</th><td>{{ booking.get_service_type_display }}</td></tr>
+    <tr><th>Status</th><td><span class="badge gold">Awaiting confirmation</span></td></tr>
+  </table>
+
+  <p class="subtle">We’ll text or message you on Facebook to confirm. Salamat po! 💛</p>
+  <a class="btn outline" href="{% url 'public_book' %}">Book another appointment</a>
+</div>
+{% endblock %}

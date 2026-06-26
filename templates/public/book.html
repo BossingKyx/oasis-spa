@@ -1,0 +1,89 @@
+{% extends 'public/base.html' %}
+{% block content %}
+
+{% if errors %}
+  <div class="msgs">{% for e in errors %}<div class="msg error">{{ e }}</div>{% endfor %}</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:16px">
+  <div class="step">Step 1 · Choose service</div>
+  <form method="get" action="{% url 'public_book' %}">
+    <div class="field">
+      <label>Branch</label>
+      <select name="branch" required>
+        <option value="">Select a branch…</option>
+        {% for b in branches %}<option value="{{ b.id }}" {% if branch.id == b.id %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label>Service(s)</label>
+      <ul class="checks">
+        {% for s in services %}
+        <li><label><input type="checkbox" name="services" value="{{ s.id }}" {% if s.id|stringformat:'s' in sel_service_ids %}checked{% endif %}> {{ s.name }} · ₱{{ s.price|floatformat:0 }}</label></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" name="date" min="{{ min_date }}" value="{{ sel_date|date:'Y-m-d' }}" required>
+    </div>
+    <button class="btn block" type="submit">Find available times</button>
+  </form>
+</div>
+
+{% if branch and sel_date %}
+<div class="card">
+  <div class="step">Step 2 · Pick a time — {{ branch.name }}, {{ sel_date|date:"M d, Y" }}</div>
+  <form method="post" action="{% url 'public_book' %}">
+    {% csrf_token %}
+    <input type="hidden" name="branch" value="{{ branch.id }}">
+    <input type="hidden" name="date" value="{{ sel_date|date:'Y-m-d' }}">
+    {% for sid in sel_service_ids %}<input type="hidden" name="services" value="{{ sid }}">{% endfor %}
+
+    {% if slots %}
+      <div class="slot-grid">
+        {% for slot in slots %}
+        <div class="slot {% if slot.full %}is-full{% endif %}">
+          <input type="radio" name="slot" id="slot{{ forloop.counter }}" value="{{ slot.start|date:'c' }}" {% if slot.full %}disabled{% endif %} {% if posted.slot == slot.start|date:'c' %}checked{% endif %}>
+          <label for="slot{{ forloop.counter }}">{{ slot.label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="slots-empty">No open times for this date. Please try another date.</p>
+    {% endif %}
+
+    {% if not sel_services %}
+      <p class="help" style="color:var(--red)">⚠ Please go back and tick at least one service in Step 1.</p>
+    {% endif %}
+
+    <div class="step" style="margin-top:22px">Step 3 · Your details</div>
+    <div class="field"><label>Full name</label><input type="text" name="full_name" value="{{ posted.full_name }}" required></div>
+    <div class="field"><label>Mobile number</label><input type="text" name="mobile" value="{{ posted.mobile }}" placeholder="0917…" required></div>
+    <div class="field">
+      <label>Service location</label>
+      <select name="service_type" id="svctype">
+        <option value="WALKIN" {% if posted.service_type == 'WALKIN' %}selected{% endif %}>Walk-in (at the spa)</option>
+        <option value="HOME" {% if posted.service_type == 'HOME' %}selected{% endif %}>Home service</option>
+      </select>
+    </div>
+    <div class="field" id="addrField"><label>Address (for home service)</label><input type="text" name="home_address" value="{{ posted.home_address }}"></div>
+    <div class="field"><label>Notes (optional)</label><textarea name="notes" rows="2">{{ posted.notes }}</textarea></div>
+
+    <input type="text" name="website" value="" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+    <button class="btn accent block" type="submit">Request booking</button>
+    <p class="help" style="text-align:center">Your slot is held as a request — we’ll confirm it shortly.</p>
+  </form>
+</div>
+{% endif %}
+
+<script>
+  (function () {
+    var t = document.getElementById('svctype'), a = document.getElementById('addrField');
+    if (!t || !a) return;
+    function sync() { a.style.display = t.value === 'HOME' ? '' : 'none'; }
+    t.addEventListener('change', sync); sync();
+  })();
+</script>
+{% endblock %}

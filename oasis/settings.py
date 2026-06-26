@@ -143,8 +143,9 @@ OASIS = {
     'CURRENCY_SYMBOL': '₱',          # PHP peso
     'OPEN_TIME': '14:00',                  # 2:00 PM
     'CLOSE_TIME': '00:00',                 # 12:00 midnight
+    'SLOT_MINUTES': 60,                    # length of each bookable time slot
     'PAYMENT_METHODS': ['Cash', 'GCash', 'QRPH', 'Credit Card'],
-    'BOOKING_CHANNELS': ['Facebook', 'Phone', 'Walk-in'],
+    'BOOKING_CHANNELS': ['Facebook', 'Phone', 'Walk-in', 'Website'],
     'EXPENSE_CATEGORIES': [
         'Supplies', 'Utilities', 'Rent', 'Salaries', 'Transport',
         'Marketing', 'Maintenance', 'Miscellaneous',

@@ -224,6 +224,26 @@ ul.checks input { width: auto; accent-color: var(--accent); }
 .demo-note { margin-top: 20px; font-size: .8rem; color: var(--muted); background: var(--bg); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); }
 .demo-note code { background: #fff; border: 1px solid var(--line-2); padding: 1px 6px; border-radius: 6px; color: var(--ink); }
 
+/* ---------- Public booking page ---------- */
+body.pub { background:
+  radial-gradient(1100px 420px at 100% -8%, #f7d9bf 0, transparent 58%),
+  radial-gradient(900px 460px at -8% 108%, #e9f2eb 0, transparent 55%), var(--bg); }
+.pub-wrap { max-width: 620px; margin: 0 auto; padding: 28px 18px 48px; }
+.pub-head { text-align: center; margin-bottom: 22px; }
+.pub-logo { width: 96px; height: 96px; border-radius: 50%; object-fit: contain; background: #fff; box-shadow: var(--shadow); margin-bottom: 10px; }
+.pub-head h1 { font-size: 1.5rem; }
+.pub-foot { text-align: center; margin-top: 26px; font-size: .82rem; }
+.step { font-size: .72rem; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-d); font-weight: 700; margin-bottom: 8px; }
+
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.slot { position: relative; }
+.slot input { position: absolute; opacity: 0; pointer-events: none; }
+.slot label { display: block; text-align: center; padding: 12px 6px; border-radius: 10px; border: 1.5px solid var(--line-2); font-weight: 600; font-size: .92rem; cursor: pointer; background: #fff; }
+.slot label:hover { border-color: var(--green); background: var(--green-soft); }
+.slot input:checked + label { background: var(--green); border-color: var(--green); color: #fff; }
+.slot.is-full label { background: #f4f1ec; color: #b3aa9b; border-color: var(--line); cursor: not-allowed; text-decoration: line-through; }
+.slots-empty { color: var(--muted); padding: 8px 0; }
+
 /* ---------- Print (receipt) ---------- */
 @media print {
   .sidebar, .topbar, .no-print { display: none !important; }

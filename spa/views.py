@@ -1,4 +1,4 @@
-"""Views for Oasis on the Go Spa — Phase 1."""
+"""Views for Oasis on the Go Spa — Phase 1 + customer self-booking."""
 from datetime import datetime
 from decimal import Decimal
 from functools import wraps
@@ -9,8 +9,10 @@ from django.db.models import Count, Q, Sum
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
+from .availability import build_slots, is_slot_open
 from .forms import BookingForm, CustomerForm, ExpenseForm, PaymentForm
 from .models import (Booking, Branch, Customer, Expense, Payment, Service,
                      StaffProfile)
@@ -110,6 +112,9 @@ def dashboard(request):
         bsales = payments.filter(booking__branch=b).aggregate(t=Sum('amount'))['t'] or 0
         by_branch.append({'branch': b, 'sales': bsales})
 
+    pending_online = Booking.objects.filter(
+        status=Booking.REQUESTED, external_source='self-booking').count()
+
     return render(request, 'spa/dashboard.html', {
         'start': start, 'end': end, 'branch': branch,
         'branches': Branch.objects.filter(is_active=True),
@@ -119,6 +124,7 @@ def dashboard(request):
         'booking_count': bookings.count(),
         'top_services': top_services,
         'by_branch': by_branch,
+        'pending_online': pending_online,
     })
 
 
@@ -498,9 +504,91 @@ def daily_report_pdf(request):
     c.drawRightString(175 * mm, y, 'Expenses:')
     c.drawRightString(195 * mm, y, f"{data['expense_total']:,.2f}")
     y -= 6 * mm
-    c.setFillColor(colors.HexColor('#0f766e'))
+    c.setFillColor(colors.HexColor('#2e6b3e'))
     c.drawRightString(175 * mm, y, 'Net:')
     c.drawRightString(195 * mm, y, f"{data['net']:,.2f}")
     c.showPage()
     c.save()
     return resp
+
+
+# ---------------------------------------------------------------------------
+# Customer self-booking (public, no login)
+# ---------------------------------------------------------------------------
+def public_book(request):
+    """Public page: pick branch + service(s) + date, see open slots, request."""
+    branches = Branch.objects.filter(is_active=True)
+    services = Service.objects.filter(is_active=True)
+    today = timezone.localdate()
+
+    def _selected(key, many=False):
+        if request.method == 'POST':
+            return request.POST.getlist(key) if many else request.POST.get(key, '')
+        return request.GET.getlist(key) if many else request.GET.get(key, '')
+
+    branch_id = _selected('branch')
+    date_str = _selected('date')
+    service_ids = _selected('services', many=True)
+
+    branch = branches.filter(pk=branch_id).first() if branch_id else None
+    sel_date = parse_date(date_str, None) if date_str else None
+    sel_services = list(services.filter(pk__in=service_ids)) if service_ids else []
+
+    slots = build_slots(branch, sel_date) if (branch and sel_date) else []
+    errors = []
+
+    if request.method == 'POST':
+        # Honeypot: real users leave this blank.
+        if request.POST.get('website'):
+            return redirect('public_book')
+
+        name = request.POST.get('full_name', '').strip()
+        mobile = request.POST.get('mobile', '').strip()
+        slot_raw = request.POST.get('slot', '')
+        service_type = request.POST.get('service_type', Booking.WALK_IN)
+        home_address = request.POST.get('home_address', '').strip()
+        notes = request.POST.get('notes', '').strip()
+        slot_dt = parse_datetime(slot_raw) if slot_raw else None
+
+        if not branch:
+            errors.append('Please choose a branch.')
+        if not sel_services:
+            errors.append('Please choose at least one service.')
+        if not name:
+            errors.append('Please enter your name.')
+        if not mobile:
+            errors.append('Please enter your mobile number.')
+        if not slot_dt:
+            errors.append('Please pick an available time slot.')
+        if service_type == Booking.HOME and not home_address:
+            errors.append('Please enter your address for home service.')
+        if slot_dt and branch and not is_slot_open(branch, slot_dt):
+            errors.append('Sorry, that time was just taken. Please pick another slot.')
+
+        if not errors:
+            customer = (Customer.objects.filter(mobile=mobile).first()
+                        if mobile else None)
+            if not customer:
+                customer = Customer.objects.create(full_name=name, mobile=mobile)
+            booking = Booking.objects.create(
+                customer=customer, branch=branch, service_type=service_type,
+                channel='Website', status=Booking.REQUESTED, scheduled_for=slot_dt,
+                home_address=home_address, notes=notes,
+                external_source='self-booking')
+            booking.services.set(sel_services)
+            return redirect('public_book_done', pk=booking.pk)
+
+    return render(request, 'public/book.html', {
+        'branches': branches, 'services': services,
+        'branch': branch, 'sel_date': sel_date, 'sel_services': sel_services,
+        'sel_service_ids': [str(s.pk) for s in sel_services],
+        'slots': slots, 'errors': errors, 'today': today,
+        'min_date': today.strftime('%Y-%m-%d'),
+        'posted': request.POST if request.method == 'POST' else {},
+    })
+
+
+def public_book_done(request, pk):
+    """Public confirmation page — limited, non-sensitive details only."""
+    booking = get_object_or_404(Booking, pk=pk, external_source='self-booking')
+    return render(request, 'public/done.html', {'booking': booking})
