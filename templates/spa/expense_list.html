@@ -1,0 +1,44 @@
+{% extends 'spa/base.html' %}
+{% block title %}Expenses — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Expenses / Petty cash</h1>
+    <div class="subtle">{{ start|date:"M d, Y" }} – {{ end|date:"M d, Y" }}{% if branch %} · {{ branch.name }}{% endif %}</div>
+  </div>
+  <a class="btn" href="{% url 'expense_create' %}">+ Log expense</a>
+</div>
+
+<form class="filters" method="get">
+  <div class="field"><label>From</label><input type="date" name="from" value="{{ start|date:'Y-m-d' }}"></div>
+  <div class="field"><label>To</label><input type="date" name="to" value="{{ end|date:'Y-m-d' }}"></div>
+  <div class="field"><label>Branch</label>
+    <select name="branch"><option value="">All branches</option>
+      {% for b in branches %}<option value="{{ b.id }}" {% if branch.id == b.id %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="card stat bad" style="max-width:280px; margin-bottom:14px"><span class="label">Total in range</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ total|floatformat:2 }}</span></div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Date</th><th>Branch</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Receipt</th></tr>
+      {% for e in expenses %}
+      <tr>
+        <td>{{ e.spent_on|date:"M d, Y" }}</td>
+        <td>{{ e.branch.name }}</td>
+        <td><span class="badge sand">{{ e.category }}</span></td>
+        <td>{{ e.description }}</td>
+        <td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ e.amount|floatformat:2 }}</td>
+        <td>{% if e.receipt %}<a href="{{ e.receipt.url }}" target="_blank">View</a>{% else %}—{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="subtle">No expenses in this range.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

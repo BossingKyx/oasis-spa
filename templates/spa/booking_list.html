@@ -1,0 +1,40 @@
+{% extends 'spa/base.html' %}
+{% block title %}Bookings — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Bookings</h1>
+  {% if is_owner %}<a class="btn" href="{% url 'booking_create' %}">+ New booking</a>{% endif %}
+</div>
+
+<form class="filters" method="get">
+  <div class="field"><label>Status</label>
+    <select name="status" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for key, label in statuses %}<option value="{{ key }}" {% if current_status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>#</th><th>When</th><th>Client</th><th>Service</th><th>Branch</th><th>Type</th><th>Status</th><th class="num">Total</th><th></th></tr>
+      {% for b in bookings %}
+      <tr>
+        <td>{{ b.id }}</td>
+        <td>{{ b.scheduled_for|date:"M d, g:i A" }}</td>
+        <td>{{ b.customer.full_name }}</td>
+        <td>{{ b.services_label }}</td>
+        <td>{{ b.branch.name }}</td>
+        <td><span class="badge {% if b.service_type == 'HOME' %}gold{% else %}teal{% endif %}">{{ b.get_service_type_display }}</span></td>
+        <td><span class="badge sand">{{ b.get_status_display }}</span></td>
+        <td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ b.service_total|floatformat:2 }}</td>
+        <td><a class="btn sm ghost" href="{% url 'booking_detail' b.id %}">Open</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="subtle">No bookings found.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

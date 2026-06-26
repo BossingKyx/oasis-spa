@@ -1,0 +1,21 @@
+{% extends 'spa/base.html' %}
+{% block title %}Record payment — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Record payment</h1>
+    <div class="subtle">Booking #{{ booking.id }} · {{ booking.customer.full_name }} · Balance {{ OASIS.CURRENCY_SYMBOL }}{{ booking.balance|floatformat:2 }}</div>
+  </div>
+</div>
+<div class="card" style="max-width:520px">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="field"><label>{{ form.method.label }}</label>{{ form.method }}{{ form.method.errors }}</div>
+    <div class="field"><label>{{ form.amount.label }} ({{ OASIS.CURRENCY_SYMBOL }})</label>{{ form.amount }}{{ form.amount.errors }}</div>
+    <div class="field"><label>{{ form.reference.label }}</label>{{ form.reference }}<div class="help">GCash / QRPH / card reference no. (optional)</div></div>
+    <div class="field"><label>Payment screenshot</label>{{ form.screenshot }}<div class="help">Upload GCash / QRPH / card proof.</div>{{ form.screenshot.errors }}</div>
+    <div class="field"><label>{{ form.paid_at.label }}</label>{{ form.paid_at }}{{ form.paid_at.errors }}</div>
+    <button class="btn block" type="submit">Save payment</button>
+  </form>
+</div>
+{% endblock %}

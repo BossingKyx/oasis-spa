@@ -1,0 +1,506 @@
+"""Views for Oasis on the Go Spa — Phase 1."""
+from datetime import datetime
+from decimal import Decimal
+from functools import wraps
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q, Sum
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
+from .forms import BookingForm, CustomerForm, ExpenseForm, PaymentForm
+from .models import (Booking, Branch, Customer, Expense, Payment, Service,
+                     StaffProfile)
+
+
+# ---------------------------------------------------------------------------
+# Role-based access helpers
+# ---------------------------------------------------------------------------
+def get_profile(user):
+    return getattr(user, 'profile', None)
+
+
+def is_owner(user):
+    p = get_profile(user)
+    return bool(user.is_superuser or (p and p.is_owner))
+
+
+def owner_required(view):
+    """Block therapists from owner-only pages (sales, reports, expenses)."""
+    @wraps(view)
+    @login_required
+    def _wrapped(request, *args, **kwargs):
+        if not is_owner(request.user):
+            return HttpResponseForbidden('This page is for the owner/admin only.')
+        return view(request, *args, **kwargs)
+    return _wrapped
+
+
+def visible_bookings(user):
+    """Owners see all bookings; therapists see only their own."""
+    qs = Booking.objects.select_related('customer', 'branch', 'therapist__user')
+    if is_owner(user):
+        return qs
+    p = get_profile(user)
+    return qs.filter(therapist=p) if p else qs.none()
+
+
+# ---------------------------------------------------------------------------
+# Date / branch filter helpers
+# ---------------------------------------------------------------------------
+def parse_date(value, default):
+    if value:
+        try:
+            return datetime.strptime(value, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    return default
+
+
+def selected_branch(request):
+    bid = request.GET.get('branch')
+    if bid:
+        return Branch.objects.filter(pk=bid).first()
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+@login_required
+def dashboard(request):
+    user = request.user
+    today = timezone.localdate()
+
+    if not is_owner(user):
+        # Therapist landing: their day at a glance.
+        mine = visible_bookings(user).filter(scheduled_for__date=today)
+        return render(request, 'spa/dashboard_staff.html', {
+            'today': today,
+            'my_bookings': mine.order_by('scheduled_for'),
+            'active_count': mine.exclude(
+                status__in=[Booking.CLOSED, Booking.CANCELLED, Booking.NO_SHOW]).count(),
+        })
+
+    start = parse_date(request.GET.get('from'), today.replace(day=1))
+    end = parse_date(request.GET.get('to'), today)
+    branch = selected_branch(request)
+
+    payments = Payment.objects.filter(paid_at__date__gte=start, paid_at__date__lte=end)
+    expenses = Expense.objects.filter(spent_on__gte=start, spent_on__lte=end)
+    bookings = Booking.objects.filter(scheduled_for__date__gte=start,
+                                      scheduled_for__date__lte=end)
+    if branch:
+        payments = payments.filter(booking__branch=branch)
+        expenses = expenses.filter(branch=branch)
+        bookings = bookings.filter(branch=branch)
+
+    sales_total = payments.aggregate(t=Sum('amount'))['t'] or Decimal('0')
+    expense_total = expenses.aggregate(t=Sum('amount'))['t'] or Decimal('0')
+
+    top_services = (Service.objects.filter(bookings__in=bookings)
+                    .annotate(n=Count('bookings'))
+                    .order_by('-n')[:5])
+
+    by_branch = []
+    for b in Branch.objects.filter(is_active=True):
+        bsales = payments.filter(booking__branch=b).aggregate(t=Sum('amount'))['t'] or 0
+        by_branch.append({'branch': b, 'sales': bsales})
+
+    return render(request, 'spa/dashboard.html', {
+        'start': start, 'end': end, 'branch': branch,
+        'branches': Branch.objects.filter(is_active=True),
+        'sales_total': sales_total,
+        'expense_total': expense_total,
+        'net': sales_total - expense_total,
+        'booking_count': bookings.count(),
+        'top_services': top_services,
+        'by_branch': by_branch,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Kanban service-flow board
+# ---------------------------------------------------------------------------
+@login_required
+def board(request):
+    user = request.user
+    qs = visible_bookings(user).prefetch_related('services')
+
+    date_val = parse_date(request.GET.get('date'), timezone.localdate())
+    qs = qs.filter(scheduled_for__date=date_val)
+
+    branch = selected_branch(request)
+    if branch:
+        qs = qs.filter(branch=branch)
+
+    columns = []
+    for status in Booking.BOARD_STATUSES:
+        cards = [b for b in qs if b.status == status]
+        columns.append({
+            'key': status,
+            'label': dict(Booking.STATUS_CHOICES)[status],
+            'cards': cards,
+        })
+
+    return render(request, 'spa/board.html', {
+        'columns': columns,
+        'date': date_val,
+        'branch': branch,
+        'branches': Branch.objects.filter(is_active=True),
+        'statuses': Booking.STATUS_CHOICES,
+    })
+
+
+@require_POST
+@login_required
+def booking_set_status(request, pk):
+    """Move a card between columns; stamp start/finish times automatically."""
+    booking = get_object_or_404(visible_bookings(request.user), pk=pk)
+    new_status = request.POST.get('status')
+    valid = dict(Booking.STATUS_CHOICES)
+    if new_status not in valid:
+        return JsonResponse({'ok': False, 'error': 'bad status'}, status=400)
+
+    now = timezone.now()
+    if new_status == Booking.IN_SERVICE and not booking.started_at:
+        booking.started_at = now
+    if new_status in (Booking.COMPLETED, Booking.PAID, Booking.CLOSED):
+        if booking.started_at and not booking.finished_at:
+            booking.finished_at = now
+    booking.status = new_status
+    booking.save()
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        lt = timezone.localtime
+        return JsonResponse({
+            'ok': True,
+            'status': booking.status,
+            'started_at': lt(booking.started_at).strftime('%I:%M %p') if booking.started_at else '',
+            'finished_at': lt(booking.finished_at).strftime('%I:%M %p') if booking.finished_at else '',
+            'duration': booking.duration_label,
+        })
+    messages.success(request, f'Booking #{booking.pk} moved to {valid[new_status]}.')
+    return redirect(request.META.get('HTTP_REFERER', 'board'))
+
+
+# ---------------------------------------------------------------------------
+# Bookings
+# ---------------------------------------------------------------------------
+@login_required
+def booking_list(request):
+    qs = visible_bookings(request.user).prefetch_related('services')
+    status = request.GET.get('status')
+    if status:
+        qs = qs.filter(status=status)
+    return render(request, 'spa/booking_list.html', {
+        'bookings': qs[:200],
+        'statuses': Booking.STATUS_CHOICES,
+        'current_status': status,
+    })
+
+
+@login_required
+def booking_detail(request, pk):
+    booking = get_object_or_404(visible_bookings(request.user), pk=pk)
+    return render(request, 'spa/booking_detail.html', {
+        'booking': booking,
+        'statuses': Booking.STATUS_CHOICES,
+        'can_pay': is_owner(request.user),
+    })
+
+
+@owner_required
+def booking_create(request):
+    if request.method == 'POST':
+        form = BookingForm(request.POST)
+        if form.is_valid():
+            booking = form.save(commit=False)
+            booking.created_by = request.user
+            booking.save()
+            form.save_m2m()
+            messages.success(request, f'Booking #{booking.pk} created.')
+            return redirect('booking_detail', pk=booking.pk)
+    else:
+        initial = {'scheduled_for': timezone.localtime().strftime('%Y-%m-%dT%H:%M')}
+        form = BookingForm(initial=initial)
+    return render(request, 'spa/booking_form.html',
+                  {'form': form, 'customer_form': CustomerForm()})
+
+
+@owner_required
+@require_POST
+def customer_quick_create(request):
+    """Add a customer inline from the booking form."""
+    form = CustomerForm(request.POST)
+    if form.is_valid():
+        c = form.save()
+        messages.success(request, f'Customer "{c.full_name}" added.')
+    else:
+        messages.error(request, 'Could not add customer — check the fields.')
+    return redirect(request.META.get('HTTP_REFERER', 'booking_create'))
+
+
+# ---------------------------------------------------------------------------
+# Payments
+# ---------------------------------------------------------------------------
+@owner_required
+def payment_create(request, pk):
+    booking = get_object_or_404(Booking, pk=pk)
+    if request.method == 'POST':
+        form = PaymentForm(request.POST, request.FILES)
+        if form.is_valid():
+            pay = form.save(commit=False)
+            pay.booking = booking
+            pay.recorded_by = request.user
+            pay.save()
+            # Auto-advance to Paid when fully settled.
+            if booking.is_paid and booking.status in (
+                    Booking.COMPLETED, Booking.IN_SERVICE, Booking.ARRIVED):
+                booking.status = Booking.PAID
+                booking.save()
+            messages.success(request, f'Payment of ₱{pay.amount:,.2f} recorded.')
+            return redirect('booking_detail', pk=booking.pk)
+    else:
+        form = PaymentForm(initial={
+            'amount': booking.balance,
+            'paid_at': timezone.localtime().strftime('%Y-%m-%dT%H:%M'),
+        })
+    return render(request, 'spa/payment_form.html', {'form': form, 'booking': booking})
+
+
+@login_required
+def receipt(request, pk):
+    booking = get_object_or_404(Booking, pk=pk)
+    if not is_owner(request.user) and get_profile(request.user) != booking.therapist:
+        return HttpResponseForbidden()
+    return render(request, 'spa/receipt.html', {
+        'booking': booking,
+        'payments': booking.payments.all(),
+        'now': timezone.localtime(),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Expenses / petty cash
+# ---------------------------------------------------------------------------
+@owner_required
+def expense_list(request):
+    today = timezone.localdate()
+    start = parse_date(request.GET.get('from'), today.replace(day=1))
+    end = parse_date(request.GET.get('to'), today)
+    branch = selected_branch(request)
+    qs = Expense.objects.filter(spent_on__gte=start, spent_on__lte=end)
+    if branch:
+        qs = qs.filter(branch=branch)
+    total = qs.aggregate(t=Sum('amount'))['t'] or Decimal('0')
+    return render(request, 'spa/expense_list.html', {
+        'expenses': qs.select_related('branch'),
+        'total': total, 'start': start, 'end': end, 'branch': branch,
+        'branches': Branch.objects.filter(is_active=True),
+    })
+
+
+@owner_required
+def expense_create(request):
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST, request.FILES)
+        if form.is_valid():
+            exp = form.save(commit=False)
+            exp.recorded_by = request.user
+            exp.save()
+            messages.success(request, f'Expense of ₱{exp.amount:,.2f} logged.')
+            return redirect('expense_list')
+    else:
+        form = ExpenseForm(initial={'spent_on': timezone.localdate().strftime('%Y-%m-%d')})
+    return render(request, 'spa/expense_form.html', {'form': form})
+
+
+# ---------------------------------------------------------------------------
+# Customers (CRM)
+# ---------------------------------------------------------------------------
+@login_required
+def customer_list(request):
+    q = request.GET.get('q', '').strip()
+    qs = Customer.objects.all()
+    if q:
+        qs = qs.filter(Q(full_name__icontains=q) | Q(mobile__icontains=q) |
+                       Q(facebook_name__icontains=q))
+    return render(request, 'spa/customer_list.html', {'customers': qs[:200], 'q': q})
+
+
+@login_required
+def customer_detail(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    return render(request, 'spa/customer_detail.html', {
+        'customer': customer,
+        'bookings': customer.bookings.select_related('branch').prefetch_related('services'),
+    })
+
+
+@owner_required
+def customer_create(request):
+    if request.method == 'POST':
+        form = CustomerForm(request.POST)
+        if form.is_valid():
+            c = form.save()
+            messages.success(request, f'Customer "{c.full_name}" added.')
+            return redirect('customer_detail', pk=c.pk)
+    else:
+        form = CustomerForm()
+    return render(request, 'spa/customer_form.html', {'form': form})
+
+
+# ---------------------------------------------------------------------------
+# Reports — daily transaction record + daily sales report (+ Excel/PDF export)
+# ---------------------------------------------------------------------------
+def _report_data(request):
+    today = timezone.localdate()
+    day = parse_date(request.GET.get('date'), today)
+    branch = selected_branch(request)
+
+    payments = (Payment.objects.filter(paid_at__date=day)
+                .select_related('booking', 'booking__customer', 'booking__branch')
+                .prefetch_related('booking__services'))
+    if branch:
+        payments = payments.filter(booking__branch=branch)
+
+    rows = list(payments.order_by('paid_at'))
+    sales_total = sum((p.amount for p in rows), Decimal('0'))
+
+    by_method, by_branch, by_service = {}, {}, {}
+    for p in rows:
+        by_method[p.method] = by_method.get(p.method, Decimal('0')) + p.amount
+        bname = p.booking.branch.name
+        by_branch[bname] = by_branch.get(bname, Decimal('0')) + p.amount
+    # Service-type counts come from the day's bookings.
+    bookings = Booking.objects.filter(scheduled_for__date=day)
+    if branch:
+        bookings = bookings.filter(branch=branch)
+    for bk in bookings.prefetch_related('services'):
+        for s in bk.services.all():
+            by_service[s.name] = by_service.get(s.name, 0) + 1
+
+    expenses = Expense.objects.filter(spent_on=day)
+    if branch:
+        expenses = expenses.filter(branch=branch)
+    expense_total = expenses.aggregate(t=Sum('amount'))['t'] or Decimal('0')
+
+    return {
+        'day': day, 'branch': branch, 'rows': rows,
+        'sales_total': sales_total, 'expense_total': expense_total,
+        'net': sales_total - expense_total,
+        'by_method': by_method, 'by_branch': by_branch, 'by_service': by_service,
+        'expenses': list(expenses.select_related('branch')),
+    }
+
+
+@owner_required
+def daily_report(request):
+    data = _report_data(request)
+    data['branches'] = Branch.objects.filter(is_active=True)
+    return render(request, 'spa/daily_report.html', data)
+
+
+@owner_required
+def daily_report_excel(request):
+    import openpyxl
+    from openpyxl.styles import Font
+    data = _report_data(request)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Daily Transactions'
+    title = f"Daily Report - {data['day']:%b %d, %Y}"
+    if data['branch']:
+        title += f" - {data['branch'].name}"
+    ws['A1'] = title
+    ws['A1'].font = Font(bold=True, size=14)
+
+    headers = ['Time', 'Booking #', 'Customer', 'Branch', 'Services', 'Method', 'Amount']
+    ws.append([])
+    ws.append(headers)
+    for c in ws[3]:
+        c.font = Font(bold=True)
+    for p in data['rows']:
+        ws.append([
+            timezone.localtime(p.paid_at).strftime('%I:%M %p'),
+            p.booking.pk, p.booking.customer.full_name, p.booking.branch.name,
+            p.booking.services_label, p.method, float(p.amount),
+        ])
+    ws.append([])
+    ws.append(['', '', '', '', '', 'Sales total', float(data['sales_total'])])
+    ws.append(['', '', '', '', '', 'Expenses', float(data['expense_total'])])
+    ws.append(['', '', '', '', '', 'Net', float(data['net'])])
+
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    fname = f"oasis_daily_{data['day']:%Y%m%d}.xlsx"
+    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+    wb.save(resp)
+    return resp
+
+
+@owner_required
+def daily_report_pdf(request):
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+    data = _report_data(request)
+
+    resp = HttpResponse(content_type='application/pdf')
+    fname = f"oasis_daily_{data['day']:%Y%m%d}.pdf"
+    resp['Content-Disposition'] = f'inline; filename="{fname}"'
+    c = canvas.Canvas(resp, pagesize=A4)
+    w, h = A4
+    y = h - 20 * mm
+    c.setFont('Helvetica-Bold', 16)
+    c.drawString(20 * mm, y, 'Oasis on the Go Spa')
+    y -= 7 * mm
+    c.setFont('Helvetica', 11)
+    sub = f"Daily Report - {data['day']:%b %d, %Y}"
+    if data['branch']:
+        sub += f" - {data['branch'].name}"
+    c.drawString(20 * mm, y, sub)
+    y -= 10 * mm
+
+    c.setFont('Helvetica-Bold', 9)
+    cols = [20, 35, 70, 120, 150, 175]
+    for label, x in zip(['Time', 'Customer', 'Services', 'Branch', 'Method', 'Amount'], cols):
+        c.drawString(x * mm, y, label)
+    y -= 2 * mm
+    c.line(20 * mm, y, 195 * mm, y)
+    y -= 5 * mm
+    c.setFont('Helvetica', 8)
+    for p in data['rows']:
+        if y < 25 * mm:
+            c.showPage()
+            y = h - 20 * mm
+            c.setFont('Helvetica', 8)
+        c.drawString(20 * mm, y, timezone.localtime(p.paid_at).strftime('%I:%M%p'))
+        c.drawString(35 * mm, y, p.booking.customer.full_name[:20])
+        c.drawString(70 * mm, y, p.booking.services_label[:28])
+        c.drawString(120 * mm, y, p.booking.branch.name[:14])
+        c.drawString(150 * mm, y, p.method[:12])
+        c.drawRightString(195 * mm, y, f"{p.amount:,.2f}")
+        y -= 5 * mm
+
+    y -= 3 * mm
+    c.line(20 * mm, y, 195 * mm, y)
+    y -= 6 * mm
+    c.setFont('Helvetica-Bold', 10)
+    c.drawRightString(175 * mm, y, 'Sales total:')
+    c.drawRightString(195 * mm, y, f"{data['sales_total']:,.2f}")
+    y -= 6 * mm
+    c.drawRightString(175 * mm, y, 'Expenses:')
+    c.drawRightString(195 * mm, y, f"{data['expense_total']:,.2f}")
+    y -= 6 * mm
+    c.setFillColor(colors.HexColor('#0f766e'))
+    c.drawRightString(175 * mm, y, 'Net:')
+    c.drawRightString(195 * mm, y, f"{data['net']:,.2f}")
+    c.showPage()
+    c.save()
+    return resp

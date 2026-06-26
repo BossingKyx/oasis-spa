@@ -1,0 +1,93 @@
+{% extends 'spa/base.html' %}
+{% block title %}Service Board — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Service Board</h1>
+    <div class="subtle">Drag a card to move it. Starting a service stamps the time automatically.</div>
+  </div>
+  {% if is_owner %}<a class="btn" href="{% url 'booking_create' %}">+ New booking</a>{% endif %}
+</div>
+
+<form class="filters" method="get">
+  <div class="field"><label>Date</label><input type="date" name="date" value="{{ date|date:'Y-m-d' }}"></div>
+  <div class="field"><label>Branch</label>
+    <select name="branch"><option value="">All branches</option>
+      {% for b in branches %}<option value="{{ b.id }}" {% if branch.id == b.id %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="board">
+  {% for col in columns %}
+  <div class="col">
+    <h3>{{ col.label }} <span class="count">{{ col.cards|length }}</span></h3>
+    <div class="drop" data-status="{{ col.key }}">
+      {% for b in col.cards %}
+      <div class="kcard {% if b.service_type == 'HOME' %}home{% endif %}" draggable="true" data-id="{{ b.id }}">
+        <div class="who">{{ b.customer.full_name }}</div>
+        <div class="svc">{{ b.services_label }}</div>
+        <div class="meta">
+          <span class="badge sand">{{ b.branch.name }}</span>
+          <span class="badge {% if b.service_type == 'HOME' %}gold{% else %}teal{% endif %}">{{ b.get_service_type_display }}</span>
+          {% if b.therapist %}<span>👤 {{ b.therapist.display_name }}</span>{% endif %}
+        </div>
+        <div class="times">
+          {% if b.started_at %}▶ {{ b.started_at|date:"g:i A" }}{% endif %}
+          {% if b.finished_at %} · ■ {{ b.finished_at|date:"g:i A" }} ({{ b.duration_label }}){% endif %}
+        </div>
+        <div class="qa">
+          <a class="btn sm ghost" href="{% url 'booking_detail' b.id %}" style="text-decoration:none">Open</a>
+          {% if col.key == 'CONFIRMED' or col.key == 'ARRIVED' %}
+            <button class="go" data-move="{{ b.id }}" data-to="IN_SERVICE">▶ Start</button>
+          {% elif col.key == 'IN_SERVICE' %}
+            <button class="go" data-move="{{ b.id }}" data-to="COMPLETED">■ Finish</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const csrftoken = '{{ csrf_token }}';
+function moveCard(id, status, cardEl) {
+  return fetch(`/booking/${id}/status/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest',
+              'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'status=' + encodeURIComponent(status),
+  }).then(r => r.json());
+}
+
+// Drag and drop
+let dragged = null;
+document.querySelectorAll('.kcard').forEach(c => {
+  c.addEventListener('dragstart', e => { dragged = c; e.dataTransfer.effectAllowed = 'move'; });
+});
+document.querySelectorAll('.drop').forEach(zone => {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    if (!dragged) return;
+    const id = dragged.dataset.id, status = zone.dataset.status;
+    moveCard(id, status, dragged).then(d => {
+      if (d.ok) { zone.appendChild(dragged); location.reload(); }
+    });
+  });
+});
+
+// Quick Start / Finish buttons
+document.querySelectorAll('[data-move]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    moveCard(btn.dataset.move, btn.dataset.to).then(d => { if (d.ok) location.reload(); });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends 'spa/base.html' %}
+{% block title %}Daily Report — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Daily Report</h1>
+    <div class="subtle">{{ day|date:"l, M d, Y" }}{% if branch %} · {{ branch.name }}{% endif %}</div>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap">
+    <a class="btn outline" href="{% url 'daily_report_excel' %}?date={{ day|date:'Y-m-d' }}{% if branch %}&branch={{ branch.id }}{% endif %}">⬇ Excel</a>
+    <a class="btn outline" href="{% url 'daily_report_pdf' %}?date={{ day|date:'Y-m-d' }}{% if branch %}&branch={{ branch.id }}{% endif %}" target="_blank">⬇ PDF</a>
+  </div>
+</div>
+
+<form class="filters" method="get">
+  <div class="field"><label>Date</label><input type="date" name="date" value="{{ day|date:'Y-m-d' }}"></div>
+  <div class="field"><label>Branch</label>
+    <select name="branch"><option value="">All branches</option>
+      {% for b in branches %}<option value="{{ b.id }}" {% if branch.id == b.id %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="grid cols-3">
+  <div class="card stat good"><span class="label">Sales</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ sales_total|floatformat:2 }}</span></div>
+  <div class="card stat bad"><span class="label">Expenses</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ expense_total|floatformat:2 }}</span></div>
+  <div class="card stat"><span class="label">Net</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ net|floatformat:2 }}</span></div>
+</div>
+
+<h2>Daily transaction record</h2>
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Time</th><th>#</th><th>Client</th><th>Branch</th><th>Services</th><th>Method</th><th class="num">Amount</th></tr>
+      {% for p in rows %}
+      <tr>
+        <td>{{ p.paid_at|date:"g:i A" }}</td>
+        <td>{{ p.booking.id }}</td>
+        <td>{{ p.booking.customer.full_name }}</td>
+        <td>{{ p.booking.branch.name }}</td>
+        <td>{{ p.booking.services_label }}</td>
+        <td>{{ p.method }}</td>
+        <td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ p.amount|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="subtle">No transactions on this day.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+
+<div class="grid cols-3" style="margin-top:14px">
+  <div class="card">
+    <h2 style="margin-top:0">By payment method</h2>
+    <table class="tbl">
+      {% for k, v in by_method.items %}<tr><td>{{ k }}</td><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ v|floatformat:2 }}</td></tr>{% empty %}<tr><td class="subtle">—</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">By branch</h2>
+    <table class="tbl">
+      {% for k, v in by_branch.items %}<tr><td>{{ k }}</td><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ v|floatformat:2 }}</td></tr>{% empty %}<tr><td class="subtle">—</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">By service type</h2>
+    <table class="tbl">
+      {% for k, v in by_service.items %}<tr><td>{{ k }}</td><td class="num">{{ v }}</td></tr>{% empty %}<tr><td class="subtle">—</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+
+<h2>Expenses this day</h2>
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Branch</th><th>Category</th><th>Description</th><th class="num">Amount</th></tr>
+      {% for e in expenses %}
+      <tr><td>{{ e.branch.name }}</td><td>{{ e.category }}</td><td>{{ e.description }}</td><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ e.amount|floatformat:2 }}</td></tr>
+      {% empty %}
+      <tr><td colspan="4" class="subtle">No expenses on this day.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

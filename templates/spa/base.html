@@ -1,0 +1,62 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <title>{% block title %}{{ OASIS.COMPANY_NAME }}{% endblock %}</title>
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+<div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo">O</span>
+      <span>Oasis Spa</span>
+    </div>
+    <nav>
+      {% url 'dashboard' as u %}<a href="{{ u }}" class="{% if request.path == u %}active{% endif %}"><span class="ic">📊</span> Dashboard</a>
+      {% url 'board' as u %}<a href="{{ u }}" class="{% if request.path == u %}active{% endif %}"><span class="ic">🗂️</span> Service Board</a>
+      {% url 'booking_list' as u %}<a href="{{ u }}" class="{% if '/bookings' in request.path %}active{% endif %}"><span class="ic">📅</span> Bookings</a>
+      {% url 'customer_list' as u %}<a href="{{ u }}" class="{% if '/customers' in request.path %}active{% endif %}"><span class="ic">👤</span> Clients</a>
+      {% if is_owner %}
+      {% url 'expense_list' as u %}<a href="{{ u }}" class="{% if '/expenses' in request.path %}active{% endif %}"><span class="ic">🧾</span> Expenses</a>
+      {% url 'daily_report' as u %}<a href="{{ u }}" class="{% if '/reports' in request.path %}active{% endif %}"><span class="ic">📈</span> Daily Report</a>
+      {% endif %}
+    </nav>
+    <div class="foot">
+      {% if user.is_authenticated %}
+        <div><strong>{{ current_profile.display_name|default:user.username }}</strong></div>
+        <div class="subtle" style="color:rgba(255,255,255,.7)">{% if is_owner %}Owner / Admin{% else %}Therapist{% endif %}</div>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
+      {% endif %}
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="hamb" onclick="document.body.classList.toggle('nav-open')">☰</button>
+      <strong>{{ OASIS.COMPANY_NAME }}</strong>
+    </div>
+    <div class="content">
+      {% if messages %}
+        <div class="msgs">
+          {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+        </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% block scripts %}{% endblock %}
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('{% static "sw.js" %}').catch(() => {}));
+  }
+</script>
+</body>
+</html>

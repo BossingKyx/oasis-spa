@@ -1,0 +1,52 @@
+{% extends 'spa/base.html' %}
+{% block title %}Dashboard — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <div class="subtle">{{ start|date:"M d, Y" }} – {{ end|date:"M d, Y" }}{% if branch %} · {{ branch.name }}{% endif %}</div>
+  </div>
+  <a class="btn" href="{% url 'booking_create' %}">+ New booking</a>
+</div>
+
+<form class="filters" method="get">
+  <div class="field"><label>From</label><input type="date" name="from" value="{{ start|date:'Y-m-d' }}"></div>
+  <div class="field"><label>To</label><input type="date" name="to" value="{{ end|date:'Y-m-d' }}"></div>
+  <div class="field"><label>Branch</label>
+    <select name="branch"><option value="">All branches</option>
+      {% for b in branches %}<option value="{{ b.id }}" {% if branch.id == b.id %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="grid cols-4">
+  <div class="card stat good"><span class="label">Sales</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ sales_total|floatformat:2 }}</span></div>
+  <div class="card stat bad"><span class="label">Expenses</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ expense_total|floatformat:2 }}</span></div>
+  <div class="card stat"><span class="label">Net</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ net|floatformat:2 }}</span></div>
+  <div class="card stat"><span class="label">Bookings</span><span class="value">{{ booking_count }}</span></div>
+</div>
+
+<div class="grid cols-2" style="margin-top:14px">
+  <div class="card">
+    <h2 style="margin-top:0">Sales by branch</h2>
+    <table class="tbl">
+      <tr><th>Branch</th><th class="num">Sales</th></tr>
+      {% for row in by_branch %}
+      <tr><td>{{ row.branch.name }}</td><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ row.sales|floatformat:2 }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Top services</h2>
+    <table class="tbl">
+      <tr><th>Service</th><th class="num">Bookings</th></tr>
+      {% for s in top_services %}
+      <tr><td>{{ s.name }}</td><td class="num">{{ s.n }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2" class="subtle">No bookings in this range.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

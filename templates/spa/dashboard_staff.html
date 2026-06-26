@@ -1,0 +1,37 @@
+{% extends 'spa/base.html' %}
+{% block title %}My day — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>My day</h1>
+    <div class="subtle">{{ today|date:"l, M d, Y" }}</div>
+  </div>
+  <a class="btn outline" href="{% url 'board' %}">Open board</a>
+</div>
+
+<div class="grid cols-2">
+  <div class="card stat"><span class="label">My active sessions today</span><span class="value">{{ active_count }}</span></div>
+  <div class="card stat"><span class="label">Total assigned today</span><span class="value">{{ my_bookings|length }}</span></div>
+</div>
+
+<h2>My bookings today</h2>
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Time</th><th>Client</th><th>Service</th><th>Branch</th><th>Status</th><th></th></tr>
+      {% for b in my_bookings %}
+      <tr>
+        <td>{{ b.scheduled_for|date:"g:i A" }}</td>
+        <td>{{ b.customer.full_name }}</td>
+        <td>{{ b.services_label }}</td>
+        <td>{{ b.branch.name }}</td>
+        <td><span class="badge teal">{{ b.get_status_display }}</span></td>
+        <td><a class="btn sm ghost" href="{% url 'booking_detail' b.id %}">Open</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="subtle">No bookings assigned to you today.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

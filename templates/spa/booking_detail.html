@@ -1,0 +1,72 @@
+{% extends 'spa/base.html' %}
+{% block title %}Booking #{{ booking.id }} — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Booking #{{ booking.id }}</h1>
+    <div class="subtle">{{ booking.scheduled_for|date:"l, M d, Y · g:i A" }}</div>
+  </div>
+  <span class="badge sand" style="font-size:.95rem">{{ booking.get_status_display }}</span>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h2 style="margin-top:0">Details</h2>
+    <table class="tbl">
+      <tr><th>Client</th><td><a href="{% url 'customer_detail' booking.customer.id %}">{{ booking.customer.full_name }}</a><br><span class="subtle">{{ booking.customer.mobile }}</span></td></tr>
+      <tr><th>Branch</th><td>{{ booking.branch.name }}</td></tr>
+      <tr><th>Services</th><td>{{ booking.services_label }}</td></tr>
+      <tr><th>Type</th><td><span class="badge {% if booking.service_type == 'HOME' %}gold{% else %}teal{% endif %}">{{ booking.get_service_type_display }}</span></td></tr>
+      <tr><th>Channel</th><td>{{ booking.channel }}</td></tr>
+      <tr><th>Therapist</th><td>{{ booking.therapist.display_name|default:"—" }}</td></tr>
+      {% if booking.service_type == 'HOME' %}
+      <tr><th>Home address</th><td>{{ booking.home_address }}</td></tr>
+      <tr><th>Travel notes</th><td>{{ booking.travel_notes|default:"—" }}</td></tr>
+      {% endif %}
+      <tr><th>Started</th><td>{{ booking.started_at|date:"g:i A"|default:"—" }}</td></tr>
+      <tr><th>Finished</th><td>{{ booking.finished_at|date:"g:i A"|default:"—" }} {% if booking.duration_label %}<span class="subtle">({{ booking.duration_label }})</span>{% endif %}</td></tr>
+      {% if booking.notes %}<tr><th>Notes</th><td>{{ booking.notes }}</td></tr>{% endif %}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Payment</h2>
+    <div class="grid cols-2">
+      <div class="stat"><span class="label">Service total</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ booking.service_total|floatformat:2 }}</span></div>
+      <div class="stat {% if booking.balance > 0 %}bad{% else %}good{% endif %}"><span class="label">Balance</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ booking.balance|floatformat:2 }}</span></div>
+    </div>
+    <table class="tbl" style="margin-top:12px">
+      <tr><th>Method</th><th class="num">Amount</th><th>When</th><th>Proof</th></tr>
+      {% for p in booking.payments.all %}
+      <tr>
+        <td>{{ p.method }}</td>
+        <td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ p.amount|floatformat:2 }}</td>
+        <td>{{ p.paid_at|date:"M d g:i A" }}</td>
+        <td>{% if p.screenshot %}<a href="{{ p.screenshot.url }}" target="_blank">View</a>{% else %}—{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="subtle">No payments yet.</td></tr>
+      {% endfor %}
+    </table>
+    {% if can_pay %}
+      <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap">
+        {% if booking.balance > 0 %}<a class="btn" href="{% url 'payment_create' booking.id %}">+ Record payment</a>{% endif %}
+        <a class="btn outline" href="{% url 'receipt' booking.id %}" target="_blank">🧾 Receipt</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <h2 style="margin-top:0">Update status</h2>
+  <form method="post" action="{% url 'booking_set_status' booking.id %}" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end">
+    {% csrf_token %}
+    <div class="field" style="margin:0">
+      <select name="status">
+        {% for key, label in statuses %}<option value="{{ key }}" {% if booking.status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn" type="submit">Update</button>
+  </form>
+</div>
+{% endblock %}

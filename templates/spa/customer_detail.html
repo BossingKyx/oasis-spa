@@ -1,0 +1,45 @@
+{% extends 'spa/base.html' %}
+{% block title %}{{ customer.full_name }} — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ customer.full_name }}</h1>
+    <div class="subtle">{{ customer.mobile }}{% if customer.facebook_name %} · FB: {{ customer.facebook_name }}{% endif %}</div>
+  </div>
+  {% if is_owner %}<a class="btn" href="{% url 'booking_create' %}">+ New booking</a>{% endif %}
+</div>
+
+<div class="grid cols-3">
+  <div class="card stat"><span class="label">Visits</span><span class="value">{{ customer.visit_count }}</span></div>
+  <div class="card stat good"><span class="label">Total spend</span><span class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ customer.total_spend|floatformat:2 }}</span></div>
+  <div class="card stat"><span class="label">Client since</span><span class="value" style="font-size:1.1rem">{{ customer.created_at|date:"M Y" }}</span></div>
+</div>
+
+{% if customer.address or customer.notes %}
+<div class="card" style="margin-top:14px">
+  {% if customer.address %}<p><strong>Address:</strong> {{ customer.address }}</p>{% endif %}
+  {% if customer.notes %}<p><strong>Notes / preferences:</strong> {{ customer.notes }}</p>{% endif %}
+</div>
+{% endif %}
+
+<h2>Visit history</h2>
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Date</th><th>Service</th><th>Branch</th><th>Status</th><th class="num">Total</th><th></th></tr>
+      {% for b in bookings %}
+      <tr>
+        <td>{{ b.scheduled_for|date:"M d, Y" }}</td>
+        <td>{{ b.services_label }}</td>
+        <td>{{ b.branch.name }}</td>
+        <td><span class="badge sand">{{ b.get_status_display }}</span></td>
+        <td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ b.service_total|floatformat:2 }}</td>
+        <td><a class="btn sm ghost" href="{% url 'booking_detail' b.id %}">Open</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="subtle">No visits yet.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

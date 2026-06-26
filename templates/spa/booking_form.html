@@ -1,0 +1,49 @@
+{% extends 'spa/base.html' %}
+{% block title %}New booking — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>New booking</h1></div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label>{{ form.customer.label }}</label>
+        {{ form.customer }}
+        {{ form.customer.errors }}
+        <div class="help">Not listed? <a href="#addclient">Add a client below</a> first.</div>
+      </div>
+      <div class="field"><label>{{ form.branch.label }}</label>{{ form.branch }}{{ form.branch.errors }}</div>
+      <div class="field">
+        <label>{{ form.services.label }}</label>
+        <ul class="checks">
+          {% for c in form.services %}<li>{{ c.tag }} <label for="{{ c.id_for_label }}">{{ c.choice_label }}</label></li>{% endfor %}
+        </ul>
+        {{ form.services.errors }}
+      </div>
+      <div class="field"><label>{{ form.therapist.label }}</label>{{ form.therapist }}{{ form.therapist.errors }}</div>
+      <div class="grid cols-2">
+        <div class="field"><label>{{ form.service_type.label }}</label>{{ form.service_type }}</div>
+        <div class="field"><label>{{ form.channel.label }}</label>{{ form.channel }}</div>
+      </div>
+      <div class="field"><label>{{ form.scheduled_for.label }}</label>{{ form.scheduled_for }}{{ form.scheduled_for.errors }}</div>
+      <div class="field"><label>{{ form.home_address.label }} <span class="subtle">(home service)</span></label>{{ form.home_address }}{{ form.home_address.errors }}</div>
+      <div class="field"><label>{{ form.travel_notes.label }}</label>{{ form.travel_notes }}</div>
+      <div class="field"><label>{{ form.notes.label }}</label>{{ form.notes }}</div>
+      <button class="btn block" type="submit">Create booking</button>
+    </form>
+  </div>
+
+  <div class="card" id="addclient">
+    <h2 style="margin-top:0">Add a new client</h2>
+    <p class="subtle">Quickly register a walk-in or Facebook client, then pick them in the form.</p>
+    <form method="post" action="{% url 'customer_quick_create' %}">
+      {% csrf_token %}
+      {% for f in customer_form %}
+      <div class="field"><label>{{ f.label }}</label>{{ f }}{{ f.errors }}</div>
+      {% endfor %}
+      <button class="btn outline block" type="submit">Save client</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'spa/base.html' %}
+{% block title %}Log expense — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Log expense</h1></div>
+<div class="card" style="max-width:520px">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="field"><label>{{ form.branch.label }}</label>{{ form.branch }}{{ form.branch.errors }}</div>
+    <div class="field"><label>{{ form.category.label }}</label>{{ form.category }}{{ form.category.errors }}</div>
+    <div class="field"><label>{{ form.description.label }}</label>{{ form.description }}</div>
+    <div class="field"><label>{{ form.amount.label }} ({{ OASIS.CURRENCY_SYMBOL }})</label>{{ form.amount }}{{ form.amount.errors }}</div>
+    <div class="field"><label>Receipt image</label>{{ form.receipt }}<div class="help">Snap the receipt with your phone.</div></div>
+    <div class="field"><label>{{ form.spent_on.label }}</label>{{ form.spent_on }}{{ form.spent_on.errors }}</div>
+    <button class="btn block" type="submit">Save expense</button>
+  </form>
+</div>
+{% endblock %}
