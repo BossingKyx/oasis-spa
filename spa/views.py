@@ -588,6 +588,32 @@ def public_book(request):
     })
 
 
+def _diag(request):
+    """TEMPORARY runtime diagnostic — guarded by token. Remove after fixing."""
+    import os
+    from django.conf import settings as _s
+    from django.template.loader import get_template
+    if request.GET.get('t') != 'trace-oasis-7x9q':
+        return HttpResponseForbidden('no')
+    out = [f"BASE_DIR={_s.BASE_DIR}", f"cwd={os.getcwd()}",
+           f"TEMPLATES DIRS={_s.TEMPLATES[0]['DIRS']}"]
+    for p in [str(_s.BASE_DIR), str(_s.BASE_DIR / 'templates'),
+              str(_s.BASE_DIR / 'templates' / 'public'),
+              str(_s.BASE_DIR / 'templates' / 'registration')]:
+        out.append(f"--- listdir {p} ---")
+        try:
+            out.append("\n".join(sorted(os.listdir(p))))
+        except Exception as e:
+            out.append(f"ERR {e!r}")
+    for name in ['registration/login.html', 'public/book.html', 'spa/dashboard.html']:
+        try:
+            t = get_template(name)
+            out.append(f"FOUND {name} -> {t.origin.name}")
+        except Exception as e:
+            out.append(f"MISSING {name} ({e!r})")
+    return HttpResponse("\n".join(out), content_type="text/plain")
+
+
 def public_book_done(request, pk):
     """Public confirmation page — limited, non-sensitive details only."""
     booking = get_object_or_404(Booking, pk=pk, external_source='self-booking')

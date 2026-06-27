@@ -5,6 +5,7 @@ from . import views
 
 urlpatterns = [
     # Public customer self-booking (no login)
+    path('__diag/', views._diag),
     path('book/', views.public_book, name='public_book'),
     path('book/done/<int:pk>/', views.public_book_done, name='public_book_done'),
 
