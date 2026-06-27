@@ -18,6 +18,7 @@ from .forms import BookingForm, CustomerForm, ExpenseForm, PaymentForm
 from .models import (Booking, Branch, Customer, Expense, Payment, PayrollMark,
                      Service, StaffProfile, TimeLog)
 from .payroll import compute_payroll, compute_payslip, week_bounds
+from .pricelist import grouped_services
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +237,8 @@ def booking_create(request):
         initial = {'scheduled_for': timezone.localtime().strftime('%Y-%m-%dT%H:%M')}
         form = BookingForm(initial=initial)
     return render(request, 'spa/booking_form.html',
-                  {'form': form, 'customer_form': CustomerForm()})
+                  {'form': form, 'customer_form': CustomerForm(),
+                   'service_groups': grouped_services()})
 
 
 @owner_required
@@ -582,6 +584,7 @@ def public_book(request):
 
     return render(request, 'spa/public_book.html', {
         'branches': branches, 'services': services,
+        'service_groups': grouped_services(),
         'branch': branch, 'sel_date': sel_date, 'sel_services': sel_services,
         'sel_service_ids': [str(s.pk) for s in sel_services],
         'slots': slots, 'errors': errors, 'today': today,

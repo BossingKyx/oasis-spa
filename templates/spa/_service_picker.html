@@ -1,0 +1,26 @@
+{# Grouped service picker. Expects: service_groups; optional sel_service_ids (list of str). #}
+{% for cat in service_groups %}
+  <div class="svc-cat">{{ cat.name }}</div>
+  {% for grp in cat.groups %}
+    {% if grp.single %}
+      {% with v=grp.variants.0 %}
+      <label class="svc-row">
+        <span><input type="checkbox" name="services" value="{{ v.id }}" {% if v.id|stringformat:'s' in sel_service_ids %}checked{% endif %}> {{ grp.name }}</span>
+        <b>{{ OASIS.CURRENCY_SYMBOL }}{{ v.price|floatformat:0 }}</b>
+      </label>
+      {% endwith %}
+    {% else %}
+      <div class="svc-group">
+        <div class="svc-group-name">{{ grp.name }}</div>
+        <div class="svc-chips">
+          {% for v in grp.variants %}
+          <label class="svc-chip">
+            <input type="checkbox" name="services" value="{{ v.id }}" {% if v.id|stringformat:'s' in sel_service_ids %}checked{% endif %}>
+            {{ v.variant }} · <b>{{ OASIS.CURRENCY_SYMBOL }}{{ v.price|floatformat:0 }}</b>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+{% endfor %}

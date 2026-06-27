@@ -16,9 +16,7 @@
       <div class="field"><label>{{ form.branch.label }}</label>{{ form.branch }}{{ form.branch.errors }}</div>
       <div class="field">
         <label>{{ form.services.label }}</label>
-        <ul class="checks">
-          {% for c in form.services %}<li>{{ c.tag }} <label for="{{ c.id_for_label }}">{{ c.choice_label }}</label></li>{% endfor %}
-        </ul>
+        {% include 'spa/_service_picker.html' %}
         {{ form.services.errors }}
       </div>
       <div class="field"><label>{{ form.therapist.label }}</label>{{ form.therapist }}{{ form.therapist.errors }}</div>

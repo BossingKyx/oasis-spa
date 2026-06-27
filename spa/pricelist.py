@@ -70,38 +70,78 @@ SPECIALTY = [   # (name, duration, price)
 ]
 
 
+# Display order of the menu sections.
+CATEGORY_ORDER = [
+    'Indulgence Massage',
+    'Enhanced Body Massage (90 min)',
+    'Renewal Boosters',
+    'Hair-Free Solutions',
+    'Specialty Massage',
+]
+
+
 def build_catalog():
-    """Return a flat list of (category, name, duration, price)."""
+    """Return a list of dicts: category, name, group, variant, duration, price."""
     items = []
+
+    def add(category, name, group, variant, duration, price):
+        items.append({'category': category, 'name': name, 'group': group,
+                      'variant': variant, 'duration': duration, 'price': price})
+
     for base, tiers in INDULGENCE_TIERS.items():
         for dur, price in tiers.items():
-            items.append(('Indulgence Massage', f'{base} ({dur} min)', dur, price))
+            add('Indulgence Massage', f'{base} ({dur} min)', base, f'{dur} min', dur, price)
     for name, dur, price in INDULGENCE_SINGLE:
-        items.append(('Indulgence Massage', f'{name} ({dur} min)', dur, price))
+        add('Indulgence Massage', f'{name} ({dur} min)', name, f'{dur} min', dur, price)
     for item, (fb, dt) in ENHANCED.items():
-        items.append(('Enhanced Body Massage (90 min)',
-                      f'Enhanced: {item} (Full Body, 90 min)', 90, fb))
-        items.append(('Enhanced Body Massage (90 min)',
-                      f'Enhanced: {item} (Deep Tissue, 90 min)', 90, dt))
+        grp = f'Enhanced: {item}'
+        add('Enhanced Body Massage (90 min)', f'{grp} (Full Body, 90 min)', grp, 'Full Body', 90, fb)
+        add('Enhanced Body Massage (90 min)', f'{grp} (Deep Tissue, 90 min)', grp, 'Deep Tissue', 90, dt)
     for name, dur, price in BOOSTERS:
-        items.append(('Renewal Boosters', name, dur, price))
+        add('Renewal Boosters', name, name, '', dur, price)
     for item, (female, male) in WAXING.items():
-        items.append(('Hair-Free Solutions', f'{item} Wax (Female)', 30, female))
-        items.append(('Hair-Free Solutions', f'{item} Wax (Male)', 30, male))
-    for name, dur, price in SPECIALTY:
-        items.append(('Specialty Massage', name, dur, price))
+        grp = f'{item} Wax'
+        add('Hair-Free Solutions', f'{grp} (Female)', grp, 'Female', 30, female)
+        add('Hair-Free Solutions', f'{grp} (Male)', grp, 'Male', 30, male)
+    add('Specialty Massage', 'Healing Haplos w/ Luya + Foot Reflex (Full Body, 90 min)',
+        'Healing Haplos w/ Luya + Foot Reflex (90 min)', 'Full Body', 90, 900)
+    add('Specialty Massage', 'Healing Haplos w/ Luya + Foot Reflex (Deep Tissue, 90 min)',
+        'Healing Haplos w/ Luya + Foot Reflex (90 min)', 'Deep Tissue', 90, 1100)
+    add('Specialty Massage', 'Focus Massage (per area, 30 min)',
+        'Focus Massage (per area, 30 min)', '', 30, 250)
     return items
 
 
 def load_services():
     """Upsert the full catalogue; deactivate anything not on it. Returns {name: Service}."""
     names = []
-    for category, name, duration, price in build_catalog():
+    for i, it in enumerate(build_catalog()):
         Service.objects.update_or_create(
-            name=name,
-            defaults={'category': category, 'duration_minutes': duration,
-                      'price': Decimal(str(price)), 'is_active': True})
-        names.append(name)
-    # Retire demo/old services that aren't on the real menu (keep for history).
+            name=it['name'],
+            defaults={'category': it['category'], 'group': it['group'],
+                      'variant': it['variant'], 'duration_minutes': it['duration'],
+                      'price': Decimal(str(it['price'])), 'sort_order': i,
+                      'is_active': True})
+        names.append(it['name'])
     Service.objects.exclude(name__in=names).update(is_active=False)
     return {s.name: s for s in Service.objects.filter(name__in=names)}
+
+
+def grouped_services():
+    """Active services as [{name, groups: [{name, single, variants:[Service]}]}] by category."""
+    from collections import OrderedDict
+    cats = OrderedDict()
+    for s in Service.objects.filter(is_active=True).order_by('sort_order', 'name'):
+        groups = cats.setdefault(s.category, OrderedDict())
+        groups.setdefault(s.group or s.name, []).append(s)
+
+    ordered = sorted(cats, key=lambda c: CATEGORY_ORDER.index(c)
+                     if c in CATEGORY_ORDER else 99)
+    result = []
+    for cat in ordered:
+        group_list = []
+        for gname, svcs in cats[cat].items():
+            single = len(svcs) == 1 and not svcs[0].variant
+            group_list.append({'name': gname, 'single': single, 'variants': svcs})
+        result.append({'name': cat, 'groups': group_list})
+    return result

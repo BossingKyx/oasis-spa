@@ -17,11 +17,7 @@
     </div>
     <div class="field">
       <label>Service(s)</label>
-      <ul class="checks">
-        {% for s in services %}
-        <li><label><input type="checkbox" name="services" value="{{ s.id }}" {% if s.id|stringformat:'s' in sel_service_ids %}checked{% endif %}> {{ s.name }} · ₱{{ s.price|floatformat:0 }}</label></li>
-        {% endfor %}
-      </ul>
+      {% include 'spa/_service_picker.html' %}
     </div>
     <div class="field">
       <label>Date</label>
