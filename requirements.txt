@@ -4,7 +4,6 @@ pypdf
 Pillow
 openpyxl
 qrcode
-anthropic
 whitenoise
 dj-database-url
 psycopg[binary]

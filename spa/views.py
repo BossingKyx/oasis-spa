@@ -627,20 +627,18 @@ def expense_scan_receipt(request):
     import io
     import json
     import os
+    import urllib.error
+    import urllib.request
 
     from django.conf import settings as _s
 
     upload = request.FILES.get('image')
     if not upload:
         return JsonResponse({'ok': False, 'error': 'Please choose a receipt photo first.'})
-    if not os.environ.get('ANTHROPIC_API_KEY'):
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
         return JsonResponse({'ok': False, 'error':
             'AI auto-fill is not set up yet. Ask the admin to add an ANTHROPIC_API_KEY.'})
-    try:
-        import anthropic
-    except ImportError:
-        return JsonResponse({'ok': False, 'error':
-            'AI library not installed on the server (pip install anthropic).'})
 
     # Normalize + downscale the image (controls cost and avoids media-type issues).
     try:
@@ -676,22 +674,33 @@ def expense_scan_receipt(request):
         "additionalProperties": False,
     }
     model = _s.OASIS.get('RECEIPT_MODEL', 'claude-opus-4-8')
+    body = json.dumps({
+        "model": model,
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": [
+            {"type": "image", "source": {
+                "type": "base64", "media_type": "image/jpeg", "data": b64}},
+            {"type": "text", "text": prompt},
+        ]}],
+        "output_config": {"format": {"type": "json_schema", "schema": schema}},
+    }).encode()
+    # Call the Anthropic Messages API directly (stdlib only — keeps the
+    # serverless bundle small enough to deploy on Vercel).
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages", data=body, method="POST",
+        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                 "content-type": "application/json"})
     try:
-        client = anthropic.Anthropic()
-        resp = client.messages.create(
-            model=model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {
-                    "type": "base64", "media_type": "image/jpeg", "data": b64}},
-                {"type": "text", "text": prompt},
-            ]}],
-            output_config={"format": {"type": "json_schema", "schema": schema}},
-        )
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors='ignore')[:200]
+        return JsonResponse({'ok': False, 'error': f'AI service error ({e.code}): {detail}'})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': f'AI service error: {e}'})
 
-    text = next((b.text for b in resp.content if b.type == 'text'), '')
+    text = next((b.get('text', '') for b in data.get('content', [])
+                 if b.get('type') == 'text'), '')
     try:
         fields = json.loads(text)
     except (ValueError, TypeError):
