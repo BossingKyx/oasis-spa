@@ -67,6 +67,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'spa.debugmw.DebugTracebackMiddleware',  # TEMP: diagnostic, remove after fix
     'django.middleware.security.SecurityMiddleware',
     # WhiteNoise serves static files (CSS, logo) in production without a
     # separate web server. Harmless locally.
