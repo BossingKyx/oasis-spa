@@ -588,28 +588,6 @@ def public_book(request):
     })
 
 
-def _diag(request):
-    """TEMP recursive diagnostic — token-guarded. Remove after the Vercel fix."""
-    import os
-    from django.conf import settings as _s
-    from django.template.loader import get_template
-    if request.GET.get('t') != 'trace-oasis-7x9q':
-        return HttpResponseForbidden('no')
-    out = [f"BASE_DIR={_s.BASE_DIR}"]
-    tdir = os.path.join(str(_s.BASE_DIR), 'templates')
-    out.append(f"--- walk {tdir} ---")
-    for root, dirs, files in os.walk(tdir):
-        for fn in files:
-            out.append(os.path.relpath(os.path.join(root, fn), tdir))
-    for name in ['spa/public_book.html', 'spa/dashboard.html', 'registration/login.html']:
-        try:
-            get_template(name)
-            out.append(f"FOUND {name}")
-        except Exception as e:
-            out.append(f"MISSING {name} ({e!r})")
-    return HttpResponse("\n".join(out), content_type="text/plain")
-
-
 def public_book_done(request, pk):
     """Public confirmation page — limited, non-sensitive details only."""
     booking = get_object_or_404(Booking, pk=pk, external_source='self-booking')
