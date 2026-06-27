@@ -198,6 +198,8 @@ OASIS = {
     'CLOSE_TIME': '00:00',                 # 12:00 midnight
     'SLOT_MINUTES': 60,                    # length of each bookable time slot
     'RECEIPT_MODEL': 'claude-haiku-4-5',   # Claude model for AI receipt auto-fill (cheap + fast)
+    'STANDARD_DAY_HOURS': 10,              # hours/day before overtime kicks in
+    'OT_MULTIPLIER': 1.25,                 # overtime pay multiplier
     'PAYMENT_METHODS': ['Cash', 'GCash', 'QRPH', 'Credit Card'],
     'BOOKING_CHANNELS': ['Facebook', 'Phone', 'Walk-in', 'Website'],
     'EXPENSE_CATEGORIES': [

@@ -1,0 +1,36 @@
+{% extends 'spa/base.html' %}
+{% block title %}Payslip — {{ s.staff.display_name }}{% endblock %}
+{% block content %}
+<div class="no-print" style="margin-bottom:14px;display:flex;gap:8px">
+  <button class="btn" onclick="window.print()">🖨️ Print</button>
+  <a class="btn ghost" href="{% url 'payroll' %}?date={{ s.week_start|date:'Y-m-d' }}">Back to payroll</a>
+</div>
+
+<div class="card" style="max-width:460px;margin:0 auto">
+  <div style="text-align:center;margin-bottom:10px">
+    <h1 style="margin:0">Oasis on the Go Spa</h1>
+    <div class="subtle">Payslip · Week of {{ s.week_start|date:"M d" }}–{{ s.week_end|date:"M d, Y" }}</div>
+  </div>
+  <hr style="border:none;border-top:1px dashed var(--sand-300)">
+  <table class="tbl">
+    <tr><th>Staff</th><td class="num">{{ s.staff.display_name }}</td></tr>
+    <tr><th>Hourly rate</th><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ s.hourly_rate }}</td></tr>
+    <tr><th>Commission</th><td class="num">{{ s.commission_rate }}%</td></tr>
+  </table>
+  <hr style="border:none;border-top:1px dashed var(--sand-300)">
+  <table class="tbl">
+    <tr><th>Regular hours</th><td class="num">{{ s.reg_hours }} h</td></tr>
+    <tr><th>Overtime hours</th><td class="num">{{ s.ot_hours }} h</td></tr>
+    <tr><td>Base pay</td><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ s.base|floatformat:2 }}</td></tr>
+    <tr><td>Overtime pay</td><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ s.ot_pay|floatformat:2 }}</td></tr>
+    <tr><td>Commission ({{ s.services_count }} services, {{ OASIS.CURRENCY_SYMBOL }}{{ s.service_total|floatformat:2 }})</td><td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ s.commission|floatformat:2 }}</td></tr>
+  </table>
+  <hr style="border:none;border-top:1px solid var(--ink)">
+  <table class="tbl">
+    <tr><td><strong>NET PAY</strong></td><td class="num"><strong>{{ OASIS.CURRENCY_SYMBOL }}{{ s.total|floatformat:2 }}</strong></td></tr>
+  </table>
+  <p style="text-align:center;margin-top:16px" class="subtle">
+    {% if s.is_paid %}Paid {{ s.paid_at|date:"M d, Y" }}{% else %}Status: Unpaid{% endif %}
+  </p>
+</div>
+{% endblock %}

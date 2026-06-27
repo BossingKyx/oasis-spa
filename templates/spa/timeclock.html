@@ -1,0 +1,54 @@
+{% extends 'spa/base.html' %}
+{% block title %}Time Clock — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <h1>Time Clock</h1>
+  <div class="subtle">{{ now|date:"l, M d, Y · g:i A" }}</div>
+</div></div>
+
+{% if no_profile %}
+  <div class="card"><p class="subtle">Your account isn't linked to a staff profile, so you can't clock in. Ask the owner to set one up in Admin.</p></div>
+{% else %}
+
+<div class="card" style="max-width:480px; text-align:center">
+  {% if open_log %}
+    <div class="stat green" style="justify-content:center; margin-bottom:8px">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <div style="text-align:left"><div class="label">Clocked in since</div><div class="value">{{ open_log.clock_in|date:"g:i A" }}</div></div>
+    </div>
+    <p class="subtle">Tap below and take a selfie to clock out.</p>
+    <form method="post" action="{% url 'clock_out' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="field"><input type="file" name="photo" accept="image/*" capture="user" required></div>
+      <button class="btn block" type="submit" style="background:var(--red);border-color:var(--red)">■ Clock Out</button>
+    </form>
+  {% else %}
+    <p class="subtle" style="margin-top:0">You're not clocked in. Take a selfie and tap to start your shift.</p>
+    <form method="post" action="{% url 'clock_in' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="field"><input type="file" name="photo" accept="image/*" capture="user" required></div>
+      <button class="btn accent block" type="submit">▶ Clock In</button>
+    </form>
+  {% endif %}
+</div>
+
+<h2>My recent shifts</h2>
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Date</th><th>In</th><th>Out</th><th class="num">Hours</th></tr>
+      {% for lg in recent %}
+      <tr>
+        <td>{{ lg.clock_in|date:"M d" }}</td>
+        <td>{{ lg.clock_in|date:"g:i A" }}</td>
+        <td>{% if lg.clock_out %}{{ lg.clock_out|date:"g:i A" }}{% else %}<span class="badge green">in progress</span>{% endif %}</td>
+        <td class="num">{{ lg.hours_label }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="subtle">No shifts yet.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

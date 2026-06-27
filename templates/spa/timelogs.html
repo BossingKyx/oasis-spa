@@ -1,0 +1,45 @@
+{% extends 'spa/base.html' %}
+{% block title %}Time Logs — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Time Logs</h1><div class="subtle">Week of {{ start|date:"M d" }} – {{ end|date:"M d, Y" }}</div></div>
+  <div style="display:flex;gap:8px">
+    <a class="btn ghost" href="?date={{ prev|date:'Y-m-d' }}{% if staff_id %}&staff={{ staff_id }}{% endif %}">← Prev</a>
+    <a class="btn ghost" href="?date={{ next|date:'Y-m-d' }}{% if staff_id %}&staff={{ staff_id }}{% endif %}">Next →</a>
+  </div>
+</div>
+
+<form class="filters" method="get">
+  <div class="field"><label>Week of</label><input type="date" name="date" value="{{ start|date:'Y-m-d' }}"></div>
+  <div class="field"><label>Staff</label>
+    <select name="staff"><option value="">All staff</option>
+      {% for s in all_staff %}<option value="{{ s.id }}" {% if staff_id == s.id|stringformat:'s' %}selected{% endif %}>{{ s.display_name }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn ghost" type="submit">Apply</button>
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Staff</th><th>Date</th><th>In</th><th>Out</th><th class="num">Hours</th><th>Selfies</th></tr>
+      {% for lg in logs %}
+      <tr>
+        <td>{{ lg.staff.display_name }}</td>
+        <td>{{ lg.clock_in|date:"D M d" }}</td>
+        <td>{{ lg.clock_in|date:"g:i A" }}</td>
+        <td>{% if lg.clock_out %}{{ lg.clock_out|date:"g:i A" }}{% else %}<span class="badge green">in progress</span>{% endif %}</td>
+        <td class="num">{{ lg.hours_label }}</td>
+        <td>
+          {% if lg.photo_in %}<a href="{{ lg.photo_in.url }}" target="_blank">in</a>{% endif %}
+          {% if lg.photo_out %} · <a href="{{ lg.photo_out.url }}" target="_blank">out</a>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="subtle">No time logs this week.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<p class="subtle" style="margin-top:10px">Need to fix a forgotten clock-out? Edit it in <a href="/admin/spa/timelog/">Admin → Time logs</a>.</p>
+{% endblock %}

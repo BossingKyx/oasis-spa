@@ -3,7 +3,7 @@
 Run:  python manage.py seed_demo
 Safe to re-run — it uses get_or_create. Wipe the DB before go-live.
 """
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -11,7 +11,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from spa.models import (Branch, Service, Customer, StaffProfile, Booking,
-                        Payment, Expense)
+                        Payment, Expense, TimeLog)
 
 
 class Command(BaseCommand):
@@ -67,8 +67,13 @@ class Command(BaseCommand):
                 u.set_password('oasis123')
                 u.save()
             p, _ = StaffProfile.objects.get_or_create(
-                user=u, defaults={'role': StaffProfile.THERAPIST, 'branch': branch,
-                                  'base_pay': Decimal('400'), 'commission_rate': Decimal('10')})
+                user=u, defaults={'role': StaffProfile.THERAPIST, 'branch': branch})
+            # Ensure payroll rates are set (also for already-seeded profiles).
+            if not p.hourly_rate:
+                p.hourly_rate = Decimal('70')
+            if not p.commission_rate:
+                p.commission_rate = Decimal('10')
+            p.save()
             therapists.append(p)
 
         # Sample customers
@@ -115,6 +120,23 @@ class Command(BaseCommand):
             Expense.objects.create(
                 branch=gentrias, category='Supplies', description='Massage oil restock',
                 amount=Decimal('850'), recorded_by=owner)
+
+        # Sample time logs for the current week so payroll shows numbers.
+        if not TimeLog.objects.exists():
+            tzinfo = timezone.get_current_timezone()
+            today = timezone.localdate()
+            week_start = today - timedelta(days=(today.weekday() + 1) % 7)  # Sunday
+            made = 0
+            for delta in range(7):
+                day = week_start + timedelta(days=delta)
+                if day >= today or made >= 3:
+                    continue
+                hrs = 11 if made == 0 else 10   # first day includes overtime
+                for ther in therapists:
+                    ci = timezone.make_aware(datetime.combine(day, time(14, 0)), tzinfo)
+                    TimeLog.objects.create(
+                        staff=ther, clock_in=ci, clock_out=ci + timedelta(hours=hrs))
+                made += 1
 
         self.stdout.write(self.style.SUCCESS(
             'Seed complete. Login: owner/oasis123 (Owner), therapist1/oasis123 (Therapist).'))

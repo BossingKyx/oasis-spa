@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .models import (Branch, Service, Customer, StaffProfile, Booking,
-                     Payment, Expense)
+                     Payment, Expense, TimeLog, PayrollMark)
 
 
 @admin.register(Branch)
@@ -24,8 +24,22 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(StaffProfile)
 class StaffProfileAdmin(admin.ModelAdmin):
-    list_display = ('display_name', 'role', 'branch', 'base_pay', 'commission_rate')
+    list_display = ('display_name', 'role', 'branch', 'hourly_rate', 'commission_rate')
     list_filter = ('role', 'branch')
+    fields = ('user', 'role', 'branch', 'mobile', 'hourly_rate', 'commission_rate')
+
+
+@admin.register(TimeLog)
+class TimeLogAdmin(admin.ModelAdmin):
+    list_display = ('staff', 'clock_in', 'clock_out', 'hours_label')
+    list_filter = ('staff',)
+    date_hierarchy = 'clock_in'
+
+
+@admin.register(PayrollMark)
+class PayrollMarkAdmin(admin.ModelAdmin):
+    list_display = ('staff', 'week_start', 'amount', 'paid_at')
+    list_filter = ('staff',)
 
 
 class PaymentInline(admin.TabularInline):

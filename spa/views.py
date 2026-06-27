@@ -1,5 +1,5 @@
-"""Views for Oasis on the Go Spa — Phase 1 + customer self-booking."""
-from datetime import datetime
+"""Views for Oasis on the Go Spa."""
+from datetime import datetime, timedelta
 from decimal import Decimal
 from functools import wraps
 
@@ -8,14 +8,16 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
 from .availability import build_slots, is_slot_open
 from .forms import BookingForm, CustomerForm, ExpenseForm, PaymentForm
-from .models import (Booking, Branch, Customer, Expense, Payment, Service,
-                     StaffProfile)
+from .models import (Booking, Branch, Customer, Expense, Payment, PayrollMark,
+                     Service, StaffProfile, TimeLog)
+from .payroll import compute_payroll, compute_payslip, week_bounds
 
 
 # ---------------------------------------------------------------------------
@@ -685,3 +687,198 @@ def expense_scan_receipt(request):
         return JsonResponse({'ok': False, 'error':
             'Could not read that receipt clearly. Please type the details in.'})
     return JsonResponse({'ok': True, 'fields': fields})
+
+
+# ---------------------------------------------------------------------------
+# Time clock (clock in / out with selfie) — staff see only their own
+# ---------------------------------------------------------------------------
+@login_required
+def timeclock(request):
+    profile = get_profile(request.user)
+    if not profile:
+        return render(request, 'spa/timeclock.html', {'no_profile': True})
+    open_log = (TimeLog.objects.filter(staff=profile, clock_out__isnull=True)
+                .order_by('-clock_in').first())
+    return render(request, 'spa/timeclock.html', {
+        'profile': profile,
+        'open_log': open_log,
+        'recent': TimeLog.objects.filter(staff=profile)[:10],
+        'now': timezone.localtime(),
+    })
+
+
+@login_required
+@require_POST
+def clock_in(request):
+    profile = get_profile(request.user)
+    if not profile:
+        messages.error(request, 'Your account has no staff profile.')
+        return redirect('timeclock')
+    if TimeLog.objects.filter(staff=profile, clock_out__isnull=True).exists():
+        messages.error(request, 'You are already clocked in.')
+        return redirect('timeclock')
+    photo = request.FILES.get('photo')
+    if not photo:
+        messages.error(request, 'Please take a selfie to clock in.')
+        return redirect('timeclock')
+    TimeLog.objects.create(staff=profile, clock_in=timezone.now(), photo_in=photo)
+    messages.success(request, 'Clocked in — have a great shift!')
+    return redirect('timeclock')
+
+
+@login_required
+@require_POST
+def clock_out(request):
+    profile = get_profile(request.user)
+    log = (TimeLog.objects.filter(staff=profile, clock_out__isnull=True)
+           .order_by('-clock_in').first()) if profile else None
+    if not log:
+        messages.error(request, 'You are not clocked in.')
+        return redirect('timeclock')
+    photo = request.FILES.get('photo')
+    if not photo:
+        messages.error(request, 'Please take a selfie to clock out.')
+        return redirect('timeclock')
+    log.clock_out = timezone.now()
+    log.photo_out = photo
+    log.save()
+    messages.success(request, f'Clocked out — {log.hours} hours this shift.')
+    return redirect('timeclock')
+
+
+@owner_required
+def timelog_list(request):
+    today = timezone.localdate()
+    start, end = week_bounds(parse_date(request.GET.get('date'), today))
+    staff_id = request.GET.get('staff')
+    qs = (TimeLog.objects.select_related('staff__user')
+          .filter(clock_in__date__gte=start, clock_in__date__lte=end))
+    if staff_id:
+        qs = qs.filter(staff_id=staff_id)
+    return render(request, 'spa/timelogs.html', {
+        'logs': qs, 'start': start, 'end': end,
+        'all_staff': StaffProfile.objects.select_related('user'),
+        'staff_id': staff_id, 'prev': start - timedelta(days=7),
+        'next': start + timedelta(days=7),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Payroll (owner only) — weekly Sun–Sat
+# ---------------------------------------------------------------------------
+@owner_required
+def payroll(request):
+    start, _ = week_bounds(parse_date(request.GET.get('date'), timezone.localdate()))
+    slips, totals = compute_payroll(start)
+    return render(request, 'spa/payroll.html', {
+        'slips': slips, 'totals': totals,
+        'week_start': start, 'week_end': start + timedelta(days=6),
+        'prev': start - timedelta(days=7), 'next': start + timedelta(days=7),
+    })
+
+
+@owner_required
+@require_POST
+def payroll_mark_paid(request, staff_id):
+    start, _ = week_bounds(parse_date(request.POST.get('date'), timezone.localdate()))
+    staff = get_object_or_404(StaffProfile, pk=staff_id)
+    existing = PayrollMark.objects.filter(staff=staff, week_start=start).first()
+    if existing:
+        existing.delete()
+        messages.info(request, f"Marked {staff.display_name}'s pay as unpaid.")
+    else:
+        slip = compute_payslip(staff, start)
+        PayrollMark.objects.create(staff=staff, week_start=start,
+                                   amount=slip['total'], recorded_by=request.user)
+        messages.success(request, f"Recorded {staff.display_name}'s pay (₱{slip['total']}) as paid.")
+    return redirect(f"{reverse('payroll')}?date={start:%Y-%m-%d}")
+
+
+@owner_required
+def payslip(request, staff_id):
+    start, _ = week_bounds(parse_date(request.GET.get('date'), timezone.localdate()))
+    staff = get_object_or_404(StaffProfile, pk=staff_id)
+    return render(request, 'spa/payslip.html', {
+        's': compute_payslip(staff, start), 'now': timezone.localtime()})
+
+
+@owner_required
+def payroll_excel(request):
+    import openpyxl
+    from openpyxl.styles import Font
+    start, _ = week_bounds(parse_date(request.GET.get('date'), timezone.localdate()))
+    slips, totals = compute_payroll(start)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Payroll'
+    ws['A1'] = f"Payroll - week of {start:%b %d, %Y} (Sun-Sat)"
+    ws['A1'].font = Font(bold=True, size=14)
+    ws.append([])
+    headers = ['Staff', 'Reg hrs', 'OT hrs', 'Base', 'OT pay', 'Services',
+               'Commission', 'Total', 'Paid?']
+    ws.append(headers)
+    for c in ws[3]:
+        c.font = Font(bold=True)
+    for s in slips:
+        ws.append([s['staff'].display_name, float(s['reg_hours']), float(s['ot_hours']),
+                   float(s['base']), float(s['ot_pay']), s['services_count'],
+                   float(s['commission']), float(s['total']),
+                   'Yes' if s['is_paid'] else 'No'])
+    ws.append([])
+    ws.append(['TOTAL', '', '', float(totals['base']), float(totals['ot_pay']), '',
+               float(totals['commission']), float(totals['total']), ''])
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = f'attachment; filename="oasis_payroll_{start:%Y%m%d}.xlsx"'
+    wb.save(resp)
+    return resp
+
+
+@owner_required
+def payroll_pdf(request):
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+    start, _ = week_bounds(parse_date(request.GET.get('date'), timezone.localdate()))
+    slips, totals = compute_payroll(start)
+    resp = HttpResponse(content_type='application/pdf')
+    resp['Content-Disposition'] = f'inline; filename="oasis_payroll_{start:%Y%m%d}.pdf"'
+    c = canvas.Canvas(resp, pagesize=A4)
+    w, h = A4
+    y = h - 20 * mm
+    c.setFont('Helvetica-Bold', 15)
+    c.drawString(20 * mm, y, 'Oasis on the Go Spa — Payroll')
+    y -= 7 * mm
+    c.setFont('Helvetica', 10)
+    c.drawString(20 * mm, y, f"Week of {start:%b %d, %Y} (Sunday-Saturday)")
+    y -= 9 * mm
+    c.setFont('Helvetica-Bold', 8)
+    cols = [(20, 'Staff'), (70, 'Reg'), (88, 'OT'), (105, 'Base'),
+            (130, 'Comm.'), (160, 'Total')]
+    for x, label in cols:
+        c.drawString(x * mm, y, label)
+    y -= 2 * mm
+    c.line(20 * mm, y, 190 * mm, y)
+    y -= 5 * mm
+    c.setFont('Helvetica', 8)
+    for s in slips:
+        if y < 25 * mm:
+            c.showPage(); y = h - 20 * mm; c.setFont('Helvetica', 8)
+        c.drawString(20 * mm, y, s['staff'].display_name[:22])
+        c.drawString(70 * mm, y, str(s['reg_hours']))
+        c.drawString(88 * mm, y, str(s['ot_hours']))
+        c.drawRightString(128 * mm, y, f"{s['base'] + s['ot_pay']:,.2f}")
+        c.drawRightString(155 * mm, y, f"{s['commission']:,.2f}")
+        c.drawRightString(190 * mm, y, f"{s['total']:,.2f}")
+        y -= 5 * mm
+    y -= 2 * mm
+    c.line(20 * mm, y, 190 * mm, y)
+    y -= 6 * mm
+    c.setFont('Helvetica-Bold', 10)
+    c.setFillColor(colors.HexColor('#2e6b3e'))
+    c.drawRightString(155 * mm, y, 'GRAND TOTAL:')
+    c.drawRightString(190 * mm, y, f"{totals['total']:,.2f}")
+    c.showPage()
+    c.save()
+    return resp

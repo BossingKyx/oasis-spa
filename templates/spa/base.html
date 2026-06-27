@@ -35,6 +35,9 @@
       {% url 'customer_list' as u %}<a href="{{ u }}" class="{% if '/customers' in request.path %}active{% endif %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/></svg>
         Clients</a>
+      {% url 'timeclock' as u %}<a href="{{ u }}" class="{% if request.path == u %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Time Clock</a>
       {% if is_owner %}
       <div class="sec">Finance</div>
       {% url 'expense_list' as u %}<a href="{{ u }}" class="{% if '/expenses' in request.path %}active{% endif %}">
@@ -43,6 +46,9 @@
       {% url 'daily_report' as u %}<a href="{{ u }}" class="{% if '/reports' in request.path %}active{% endif %}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20V4M4 20h16"/><path d="M8 16l3-4 3 2 4-6"/></svg>
         Daily Report</a>
+      {% url 'payroll' as u %}<a href="{{ u }}" class="{% if '/payroll' in request.path or '/timelogs' in request.path %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18v12H3z"/><path d="M3 11h18M7 15h4"/></svg>
+        Payroll</a>
       <div class="sec">Online</div>
       <a href="{% url 'public_book' %}" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>

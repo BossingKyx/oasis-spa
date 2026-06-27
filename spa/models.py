@@ -1,4 +1,6 @@
-"""Data model for Oasis on the Go Spa — Phase 1 (MVP)."""
+"""Data model for Oasis on the Go Spa."""
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
@@ -79,10 +81,12 @@ class StaffProfile(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.SET_NULL, null=True, blank=True,
                                related_name='staff')
     mobile = models.CharField(max_length=40, blank=True)
-    # Base + commission scaffolding — fully used in Phase 2 payroll.
-    base_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Payroll: pay = hours × hourly_rate (+OT) + commission % of services performed.
+    hourly_rate = models.DecimalField('Hourly rate (₱)', max_digits=10,
+                                      decimal_places=2, default=0)
     commission_rate = models.DecimalField('Commission rate (%)', max_digits=5,
                                           decimal_places=2, default=0)
+    base_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # legacy/unused
 
     def __str__(self):
         return f'{self.user.get_full_name() or self.user.username} ({self.get_role_display()})'
@@ -234,3 +238,53 @@ class Expense(models.Model):
 
     def __str__(self):
         return f'₱{self.amount:,.2f} {self.category} — {self.branch}'
+
+
+class TimeLog(models.Model):
+    """One staff shift: clock-in and clock-out, each with a selfie.
+
+    Server stamps the time (the photo's own timestamp is not trusted).
+    """
+    staff = models.ForeignKey(StaffProfile, on_delete=models.CASCADE, related_name='timelogs')
+    clock_in = models.DateTimeField(default=timezone.now)
+    clock_out = models.DateTimeField(null=True, blank=True)
+    photo_in = models.ImageField(upload_to='timelogs/%Y/%m/', blank=True, null=True)
+    photo_out = models.ImageField(upload_to='timelogs/%Y/%m/', blank=True, null=True)
+    note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-clock_in']
+
+    def __str__(self):
+        return f'{self.staff.display_name} — {self.clock_in:%b %d %I:%M %p}'
+
+    @property
+    def is_open(self):
+        return self.clock_out is None
+
+    @property
+    def hours(self):
+        """Worked hours as a Decimal (0 while still clocked in)."""
+        if not self.clock_out:
+            return Decimal('0')
+        secs = (self.clock_out - self.clock_in).total_seconds()
+        return (Decimal(secs) / Decimal(3600)).quantize(Decimal('0.01'))
+
+    @property
+    def hours_label(self):
+        return f'{self.hours} h' if self.clock_out else 'in progress'
+
+
+class PayrollMark(models.Model):
+    """Records that a staff member's pay for a given week has been released."""
+    staff = models.ForeignKey(StaffProfile, on_delete=models.CASCADE, related_name='payroll_marks')
+    week_start = models.DateField()  # the Sunday that begins the pay week
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    paid_at = models.DateTimeField(default=timezone.now)
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        unique_together = ('staff', 'week_start')
+
+    def __str__(self):
+        return f'{self.staff.display_name} paid for week of {self.week_start}'

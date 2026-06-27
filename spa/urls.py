@@ -34,6 +34,17 @@ urlpatterns = [
     path('expenses/new/', views.expense_create, name='expense_create'),
     path('expenses/scan-receipt/', views.expense_scan_receipt, name='expense_scan_receipt'),
 
+    # Time clock + payroll
+    path('timeclock/', views.timeclock, name='timeclock'),
+    path('timeclock/in/', views.clock_in, name='clock_in'),
+    path('timeclock/out/', views.clock_out, name='clock_out'),
+    path('timelogs/', views.timelog_list, name='timelog_list'),
+    path('payroll/', views.payroll, name='payroll'),
+    path('payroll/excel/', views.payroll_excel, name='payroll_excel'),
+    path('payroll/pdf/', views.payroll_pdf, name='payroll_pdf'),
+    path('payroll/<int:staff_id>/payslip/', views.payslip, name='payslip'),
+    path('payroll/<int:staff_id>/mark/', views.payroll_mark_paid, name='payroll_mark_paid'),
+
     # Reports
     path('reports/daily/', views.daily_report, name='daily_report'),
     path('reports/daily/excel/', views.daily_report_excel, name='daily_report_excel'),

@@ -1,0 +1,66 @@
+{% extends 'spa/base.html' %}
+{% block title %}Payroll — {{ OASIS.COMPANY_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Payroll</h1>
+    <div class="subtle">Week of {{ week_start|date:"M d" }} – {{ week_end|date:"M d, Y" }} · Sunday–Saturday</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a class="btn ghost" href="{% url 'timelog_list' %}?date={{ week_start|date:'Y-m-d' }}">🕒 Time logs</a>
+    <a class="btn outline" href="{% url 'payroll_excel' %}?date={{ week_start|date:'Y-m-d' }}">⬇ Excel</a>
+    <a class="btn outline" href="{% url 'payroll_pdf' %}?date={{ week_start|date:'Y-m-d' }}" target="_blank">⬇ PDF</a>
+  </div>
+</div>
+
+<div class="filters" style="justify-content:space-between">
+  <div style="display:flex;gap:8px;align-items:center">
+    <a class="btn ghost sm" href="?date={{ prev|date:'Y-m-d' }}">← Prev week</a>
+    <a class="btn ghost sm" href="?date={{ next|date:'Y-m-d' }}">Next week →</a>
+  </div>
+  <form method="get" style="display:flex;gap:8px;align-items:end">
+    <div class="field" style="margin:0"><label>Jump to week of</label><input type="date" name="date" value="{{ week_start|date:'Y-m-d' }}"></div>
+    <button class="btn ghost" type="submit">Go</button>
+  </form>
+</div>
+
+<div class="grid cols-3">
+  <div class="card stat green"><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><div class="label">Base + OT</div><div class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ totals.base_total|floatformat:2 }}</div></div></div>
+  <div class="card stat amber"><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><div><div class="label">Commission</div><div class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ totals.commission|floatformat:2 }}</div></div></div>
+  <div class="card stat"><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18v10H3z"/><path d="M3 11h18"/></svg></span><div><div class="label">Grand total</div><div class="value">{{ OASIS.CURRENCY_SYMBOL }}{{ totals.total|floatformat:2 }}</div></div></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="table-wrap">
+    <table class="tbl">
+      <tr>
+        <th>Staff</th><th class="num">Reg hrs</th><th class="num">OT hrs</th>
+        <th class="num">Base + OT</th><th class="num">Services</th><th class="num">Commission</th>
+        <th class="num">Total</th><th>Status</th><th></th>
+      </tr>
+      {% for s in slips %}
+      <tr>
+        <td><strong>{{ s.staff.display_name }}</strong><br><span class="subtle">{{ OASIS.CURRENCY_SYMBOL }}{{ s.hourly_rate }}/hr · {{ s.commission_rate }}%</span></td>
+        <td class="num">{{ s.reg_hours }}</td>
+        <td class="num">{{ s.ot_hours }}</td>
+        <td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ s.base_total|floatformat:2 }}</td>
+        <td class="num">{{ s.services_count }}</td>
+        <td class="num">{{ OASIS.CURRENCY_SYMBOL }}{{ s.commission|floatformat:2 }}</td>
+        <td class="num"><strong>{{ OASIS.CURRENCY_SYMBOL }}{{ s.total|floatformat:2 }}</strong></td>
+        <td>{% if s.is_paid %}<span class="badge green">Paid</span>{% else %}<span class="badge sand">Unpaid</span>{% endif %}</td>
+        <td style="white-space:nowrap">
+          <a class="btn sm ghost" href="{% url 'payslip' s.staff.id %}?date={{ week_start|date:'Y-m-d' }}" target="_blank">Payslip</a>
+          <form method="post" action="{% url 'payroll_mark_paid' s.staff.id %}" style="display:inline">
+            {% csrf_token %}<input type="hidden" name="date" value="{{ week_start|date:'Y-m-d' }}">
+            <button class="btn sm {% if s.is_paid %}ghost{% else %}accent{% endif %}" type="submit">{% if s.is_paid %}Undo{% else %}Mark paid{% endif %}</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="subtle">No staff found.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<p class="subtle" style="margin-top:10px">Base = regular hrs × rate + OT (over {{ OASIS.STANDARD_DAY_HOURS }} h/day) × {{ OASIS.OT_MULTIPLIER }}. Commission = % of services performed.</p>
+{% endblock %}
