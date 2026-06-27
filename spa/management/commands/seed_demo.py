@@ -26,24 +26,9 @@ class Command(BaseCommand):
             name='Trece Martires',
             defaults={'address': 'Trece Martires, Cavite', 'phone': '0917-000-0002'})
 
-        # Services
-        services = [
-            ('Swedish Massage', 'Massage', 60, 450),
-            ('Deep Tissue Massage', 'Massage', 60, 550),
-            ('Foot Massage', 'Massage', 45, 300),
-            ('Manicure', 'Nails', 45, 200),
-            ('Pedicure', 'Nails', 45, 250),
-            ('Gel Polish', 'Nails', 60, 400),
-            ('Underarm Wax', 'Waxing', 20, 250),
-            ('Leg Wax', 'Waxing', 40, 500),
-            ('Head Spa', 'Head Spa', 60, 600),
-        ]
-        svc_objs = {}
-        for name, cat, dur, price in services:
-            s, _ = Service.objects.get_or_create(
-                name=name,
-                defaults={'category': cat, 'duration_minutes': dur, 'price': Decimal(price)})
-            svc_objs[name] = s
+        # Services — load the official price list (authoritative catalogue)
+        from spa.pricelist import load_services
+        svc_objs = load_services()
 
         # Owner account
         owner, created = User.objects.get_or_create(
@@ -90,11 +75,11 @@ class Command(BaseCommand):
         if not Booking.objects.exists():
             now = timezone.now()
             samples = [
-                (custs[0], gentrias, ['Swedish Massage'], therapists[0],
+                (custs[0], gentrias, ['Swedish (60 min)'], therapists[0],
                  Booking.WALK_IN, 'Walk-in', Booking.IN_SERVICE),
-                (custs[1], gentrias, ['Manicure', 'Pedicure'], therapists[0],
+                (custs[1], gentrias, ['Foot Spa', 'Foot Scrub'], therapists[0],
                  Booking.WALK_IN, 'Facebook', Booking.CONFIRMED),
-                (custs[2], trece, ['Head Spa'], therapists[1],
+                (custs[2], trece, ['Hot Stone (90 min)'], therapists[1],
                  Booking.HOME, 'Phone', Booking.PAID),
             ]
             for cust, br, svcs, ther, typ, ch, status in samples:

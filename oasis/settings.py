@@ -194,7 +194,7 @@ LOGOUT_REDIRECT_URL = 'login'
 OASIS = {
     'COMPANY_NAME': 'Oasis on the Go Spa',
     'CURRENCY_SYMBOL': '₱',          # PHP peso
-    'OPEN_TIME': '14:00',                  # 2:00 PM
+    'OPEN_TIME': '12:00',                  # 12:00 noon (Mon-Sun)
     'CLOSE_TIME': '00:00',                 # 12:00 midnight
     'SLOT_MINUTES': 60,                    # length of each bookable time slot
     'RECEIPT_MODEL': 'claude-haiku-4-5',   # Claude model for AI receipt auto-fill (cheap + fast)
