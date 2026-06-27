@@ -5,6 +5,7 @@ from . import views
 
 urlpatterns = [
     # Public customer self-booking (no login)
+    path('__diag/', views._diag),
     path('book/', views.public_book, name='public_book'),
     path('book/done/<int:pk>/', views.public_book_done, name='public_book_done'),
 
@@ -32,6 +33,7 @@ urlpatterns = [
     # Expenses / petty cash
     path('expenses/', views.expense_list, name='expense_list'),
     path('expenses/new/', views.expense_create, name='expense_create'),
+    path('expenses/scan-receipt/', views.expense_scan_receipt, name='expense_scan_receipt'),
 
     # Reports
     path('reports/daily/', views.daily_report, name='daily_report'),

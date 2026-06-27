@@ -2,16 +2,87 @@
 {% block title %}Log expense — {{ OASIS.COMPANY_NAME }}{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Log expense</h1></div>
-<div class="card" style="max-width:520px">
+<div class="card" style="max-width:560px">
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
+
+    <div class="field">
+      <label>Receipt image</label>
+      {{ form.receipt }}
+      <div class="help">Snap the receipt with your phone.</div>
+      <button type="button" id="scanBtn" class="btn outline sm" style="margin-top:8px">✨ Auto-fill from photo</button>
+      <span id="scanStatus" class="help" style="margin-left:8px"></span>
+    </div>
+
+    <div class="field"><label>{{ form.supplier_name.label }}</label>{{ form.supplier_name }}{{ form.supplier_name.errors }}</div>
+    <div class="grid cols-2">
+      <div class="field"><label>{{ form.supplier_tin.label }}</label>{{ form.supplier_tin }}</div>
+      <div class="field"><label>{{ form.reference.label }}</label>{{ form.reference }}</div>
+    </div>
+    <div class="field"><label>{{ form.supplier_address.label }}</label>{{ form.supplier_address }}</div>
+
     <div class="field"><label>{{ form.branch.label }}</label>{{ form.branch }}{{ form.branch.errors }}</div>
     <div class="field"><label>{{ form.category.label }}</label>{{ form.category }}{{ form.category.errors }}</div>
     <div class="field"><label>{{ form.description.label }}</label>{{ form.description }}</div>
-    <div class="field"><label>{{ form.amount.label }} ({{ OASIS.CURRENCY_SYMBOL }})</label>{{ form.amount }}{{ form.amount.errors }}</div>
-    <div class="field"><label>Receipt image</label>{{ form.receipt }}<div class="help">Snap the receipt with your phone.</div></div>
-    <div class="field"><label>{{ form.spent_on.label }}</label>{{ form.spent_on }}{{ form.spent_on.errors }}</div>
+    <div class="grid cols-2">
+      <div class="field"><label>{{ form.amount.label }} ({{ OASIS.CURRENCY_SYMBOL }})</label>{{ form.amount }}{{ form.amount.errors }}</div>
+      <div class="field"><label>{{ form.spent_on.label }}</label>{{ form.spent_on }}{{ form.spent_on.errors }}</div>
+    </div>
+
     <button class="btn block" type="submit">Save expense</button>
   </form>
 </div>
+
+<script>
+(function () {
+  var btn = document.getElementById('scanBtn');
+  var status = document.getElementById('scanStatus');
+  var fileInput = document.getElementById('id_receipt');
+  if (!btn || !fileInput) return;
+
+  function setVal(id, v) {
+    var el = document.getElementById(id);
+    if (el && v) { el.value = v; }
+  }
+  function setSelect(id, v) {
+    var el = document.getElementById(id);
+    if (!el || !v) return;
+    var want = v.trim().toLowerCase();
+    for (var i = 0; i < el.options.length; i++) {
+      if (el.options[i].text.trim().toLowerCase() === want) { el.selectedIndex = i; return; }
+    }
+  }
+
+  btn.addEventListener('click', function () {
+    if (!fileInput.files || !fileInput.files[0]) {
+      status.textContent = 'Choose a receipt photo first.';
+      return;
+    }
+    status.textContent = 'Reading receipt…';
+    btn.disabled = true;
+    var fd = new FormData();
+    fd.append('image', fileInput.files[0]);
+    fetch('{% url "expense_scan_receipt" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': '{{ csrf_token }}'},
+      body: fd,
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      btn.disabled = false;
+      if (!d.ok) { status.textContent = '⚠ ' + d.error; return; }
+      var f = d.fields || {};
+      setVal('id_supplier_name', f.supplier_name);
+      setVal('id_supplier_tin', f.supplier_tin);
+      setVal('id_supplier_address', f.supplier_address);
+      setVal('id_reference', f.reference);
+      setVal('id_amount', f.amount);
+      setVal('id_spent_on', f.spent_on);
+      setSelect('id_category', f.category);
+      status.textContent = '✓ Filled in — please double-check the details.';
+    }).catch(function () {
+      btn.disabled = false;
+      status.textContent = '⚠ Could not reach the AI service.';
+    });
+  });
+})();
+</script>
 {% endblock %}

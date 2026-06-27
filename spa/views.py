@@ -578,7 +578,7 @@ def public_book(request):
             booking.services.set(sel_services)
             return redirect('public_book_done', pk=booking.pk)
 
-    return render(request, 'spa/public/book.html', {
+    return render(request, 'spa/public_book.html', {
         'branches': branches, 'services': services,
         'branch': branch, 'sel_date': sel_date, 'sel_services': sel_services,
         'sel_service_ids': [str(s.pk) for s in sel_services],
@@ -588,7 +588,113 @@ def public_book(request):
     })
 
 
+def _diag(request):
+    """TEMP recursive diagnostic — token-guarded. Remove after the Vercel fix."""
+    import os
+    from django.conf import settings as _s
+    from django.template.loader import get_template
+    if request.GET.get('t') != 'trace-oasis-7x9q':
+        return HttpResponseForbidden('no')
+    out = [f"BASE_DIR={_s.BASE_DIR}"]
+    tdir = os.path.join(str(_s.BASE_DIR), 'templates')
+    out.append(f"--- walk {tdir} ---")
+    for root, dirs, files in os.walk(tdir):
+        for fn in files:
+            out.append(os.path.relpath(os.path.join(root, fn), tdir))
+    for name in ['spa/public_book.html', 'spa/dashboard.html', 'registration/login.html']:
+        try:
+            get_template(name)
+            out.append(f"FOUND {name}")
+        except Exception as e:
+            out.append(f"MISSING {name} ({e!r})")
+    return HttpResponse("\n".join(out), content_type="text/plain")
+
+
 def public_book_done(request, pk):
     """Public confirmation page — limited, non-sensitive details only."""
     booking = get_object_or_404(Booking, pk=pk, external_source='self-booking')
-    return render(request, 'spa/public/done.html', {'booking': booking})
+    return render(request, 'spa/public_done.html', {'booking': booking})
+
+
+# ---------------------------------------------------------------------------
+# AI receipt scanning — auto-fill expense fields from an uploaded photo
+# ---------------------------------------------------------------------------
+@owner_required
+@require_POST
+def expense_scan_receipt(request):
+    """Read a receipt photo with Claude vision and return structured fields."""
+    import base64
+    import io
+    import json
+    import os
+
+    from django.conf import settings as _s
+
+    upload = request.FILES.get('image')
+    if not upload:
+        return JsonResponse({'ok': False, 'error': 'Please choose a receipt photo first.'})
+    if not os.environ.get('ANTHROPIC_API_KEY'):
+        return JsonResponse({'ok': False, 'error':
+            'AI auto-fill is not set up yet. Ask the admin to add an ANTHROPIC_API_KEY.'})
+    try:
+        import anthropic
+    except ImportError:
+        return JsonResponse({'ok': False, 'error':
+            'AI library not installed on the server (pip install anthropic).'})
+
+    # Normalize + downscale the image (controls cost and avoids media-type issues).
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(upload.read())).convert('RGB')
+        img.thumbnail((1600, 1600))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=85)
+        b64 = base64.standard_b64encode(buf.getvalue()).decode()
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'That file did not look like an image.'})
+
+    categories = ', '.join(_s.OASIS.get('EXPENSE_CATEGORIES', []))
+    prompt = (
+        "This is a photo of a Philippine sales receipt, official receipt, or invoice. "
+        "Extract these fields. Use an empty string for anything not clearly visible — "
+        "do not guess or invent values.\n"
+        "- supplier_name: the store/business that issued the receipt\n"
+        "- supplier_tin: the supplier's TIN (tax id), digits/dashes only\n"
+        "- supplier_address: the supplier's address\n"
+        "- reference: the receipt/invoice/OR number\n"
+        "- amount: the TOTAL amount due, as a plain number with no currency symbol or commas\n"
+        "- spent_on: the receipt date as YYYY-MM-DD, or empty if not shown\n"
+        f"- category: the best fit from this list (or empty): {categories}"
+    )
+    schema = {
+        "type": "object",
+        "properties": {k: {"type": "string"} for k in (
+            "supplier_name", "supplier_tin", "supplier_address",
+            "reference", "amount", "spent_on", "category")},
+        "required": ["supplier_name", "supplier_tin", "supplier_address",
+                     "reference", "amount", "spent_on", "category"],
+        "additionalProperties": False,
+    }
+    model = _s.OASIS.get('RECEIPT_MODEL', 'claude-opus-4-8')
+    try:
+        client = anthropic.Anthropic()
+        resp = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": [
+                {"type": "image", "source": {
+                    "type": "base64", "media_type": "image/jpeg", "data": b64}},
+                {"type": "text", "text": prompt},
+            ]}],
+            output_config={"format": {"type": "json_schema", "schema": schema}},
+        )
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': f'AI service error: {e}'})
+
+    text = next((b.text for b in resp.content if b.type == 'text'), '')
+    try:
+        fields = json.loads(text)
+    except (ValueError, TypeError):
+        return JsonResponse({'ok': False, 'error':
+            'Could not read that receipt clearly. Please type the details in.'})
+    return JsonResponse({'ok': True, 'fields': fields})

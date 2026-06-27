@@ -72,7 +72,8 @@ class PaymentForm(forms.ModelForm):
 class ExpenseForm(forms.ModelForm):
     class Meta:
         model = Expense
-        fields = ['branch', 'category', 'description', 'amount', 'receipt', 'spent_on']
+        fields = ['branch', 'category', 'description', 'supplier_name', 'supplier_tin',
+                  'supplier_address', 'reference', 'amount', 'receipt', 'spent_on']
         widgets = {
             'spent_on': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
         }
