@@ -229,6 +229,8 @@ body.pub { background:
   radial-gradient(1100px 420px at 100% -8%, #f7d9bf 0, transparent 58%),
   radial-gradient(900px 460px at -8% 108%, #e9f2eb 0, transparent 55%), var(--bg); }
 .pub-wrap { max-width: 620px; margin: 0 auto; padding: 28px 18px 48px; }
+.pub-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pub-bar form { margin: 0; }
 .pub-head { text-align: center; margin-bottom: 22px; }
 .pub-logo { width: 96px; height: 96px; border-radius: 50%; object-fit: contain; background: #fff; box-shadow: var(--shadow); margin-bottom: 10px; }
 .pub-head h1 { font-size: 1.5rem; }

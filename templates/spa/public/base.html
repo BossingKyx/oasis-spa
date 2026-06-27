@@ -14,6 +14,15 @@
 </head>
 <body class="pub">
   <div class="pub-wrap">
+    {% if user.is_authenticated %}
+    <div class="pub-bar">
+      <a class="btn ghost sm" href="{% url 'dashboard' %}">← Back to Dashboard</a>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'public_book' %}">
+        <button class="btn outline sm" type="submit">Log out</button>
+      </form>
+    </div>
+    {% endif %}
     <header class="pub-head">
       <img src="{% static 'img/oasis-logo.png' %}" alt="Oasis on the Go Spa" class="pub-logo" onerror="this.style.display='none'">
       <h1>Oasis on the Go Spa</h1>
